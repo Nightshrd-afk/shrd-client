@@ -15,22 +15,25 @@ import java.util.Map;
  * Xbox Live → XSTS → Minecraft services → profile. The Minecraft token it ends with is what an
  * online server accepts, so this is what makes servers like Donut SMP possible at all.
  * <p>
- * It needs one thing this project cannot ship: an Azure application (client) id. A client id is
- * public by design — it is sent to Microsoft in the URL — but it belongs to whoever registers the
- * app, and registering one is a two-minute, free step in the Azure portal with your own Microsoft
- * account. {@link #CLIENT_HELP} is where to do it; the client id is then pasted into Settings.
+ * Nothing has to be registered anywhere for this to work. {@link #DEFAULT_CLIENT_ID} is Microsoft's
+ * public device-code client for Xbox Live: no secret, no tenant, no Azure portal, no account of
+ * anyone's — it is the same public identifier every third-party Minecraft launcher has used for the
+ * device flow for years. An id of your own can still be supplied (Settings keeps a field for it),
+ * and the only thing that changes is which application Microsoft's consent page names.
  * <p>
  * The device-code flow is used rather than a browser redirect because it needs no client secret and
  * no local web server: the launcher shows a short code, you type it on Microsoft's page, and the
- * launcher polls until the token arrives.
+ * launcher polls until the token arrives. A token from this endpoint is an MSA token, which is why
+ * the Xbox Live step sends it as {@code d=…} rather than an Azure AD {@code t=…} ticket.
  */
 public final class MicrosoftAuth {
 
-	public static final String CLIENT_HELP = "https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade";
+	/** Microsoft's public device-code client id: no registration, no secret, works as-is. */
+	public static final String DEFAULT_CLIENT_ID = "00000000402b5328";
 
-	private static final String DEVICE_CODE_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode";
-	private static final String TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
-	private static final String SCOPE = "XboxLive.signin offline_access";
+	private static final String DEVICE_CODE_URL = "https://login.live.com/oauth20_connect.srf";
+	private static final String TOKEN_URL = "https://login.live.com/oauth20_token.srf";
+	private static final String SCOPE = "service::user.auth.xboxlive.com::MBI_SSL";
 
 	private static final String XBL_URL = "https://user.auth.xboxlive.com/user/authenticate";
 	private static final String XSTS_URL = "https://xsts.auth.xboxlive.com/xsts/authorize";
@@ -52,9 +55,17 @@ public final class MicrosoftAuth {
 	private MicrosoftAuth() {
 	}
 
+	/** The id to use: the configured one when there is one, otherwise the built-in public id. */
+	public static String clientId(String configured) {
+		return configured == null || configured.isBlank() ? DEFAULT_CLIENT_ID : configured.trim();
+	}
+
 	/** Asks Microsoft for a code to show the user, and the interval to poll at. */
 	public static Device begin(String clientId) throws IOException {
-		Http.Reply reply = Http.postForm(DEVICE_CODE_URL, Map.of("client_id", clientId, "scope", SCOPE), null);
+		Http.Reply reply = Http.postForm(DEVICE_CODE_URL, Map.of(
+			"client_id", clientId(clientId),
+			"scope", SCOPE,
+			"response_type", "device_code"), null);
 
 		if (!reply.ok()) {
 			throw new IOException(explain(reply));
@@ -82,7 +93,7 @@ public final class MicrosoftAuth {
 
 			Http.Reply reply = Http.postForm(TOKEN_URL, Map.of(
 				"grant_type", "urn:ietf:params:oauth:grant-type:device_code",
-				"client_id", clientId,
+				"client_id", clientId(clientId),
 				"device_code", device.deviceCode()), null);
 
 			if (reply.ok()) {

@@ -236,6 +236,15 @@ public class ShrdClientGameTest implements FabricClientGameTest {
 		context.runOnClient(client -> getModule("Performance Mode").setEnabled(false));
 		measurePhase(context, "C2-performance-mode");
 
+		// Fast HUD: with the graphics levers barely moving at this frame rate, the question is what
+		// the overlays themselves cost. Bracketed by C2 above and the same settings below.
+		context.runOnClient(client -> {
+			getModule("Performance Mode").setEnabled(true);
+			setBooleanSetting("Performance Mode", "Fast HUD", true);
+		});
+		measurePhase(context, "C3-performance-fast-hud");
+		context.runOnClient(client -> setBooleanSetting("Performance Mode", "Fast HUD", false));
+
 		// The distance lever last, and only once: going from 16 to 8 chunks forces a long
 		// burst of chunk unloads and light recalculation that contaminates whatever is
 		// measured next, so nothing else is measured after it.

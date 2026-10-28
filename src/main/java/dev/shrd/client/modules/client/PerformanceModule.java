@@ -37,7 +37,7 @@ public class PerformanceModule extends Module {
 
 	private final BooleanSetting visualDowngrade = setting("Visual Downgrade",
 		"Fast graphics: no clouds, minimal particles, no smooth lighting, no entity shadows, no biome blend, "
-			+ "fastest leaves, no chunk fade-in and no vignette.", true);
+			+ "fastest leaves, no chunk fade-in, no vignette and chunk updates that never stall a frame.", true);
 
 	private final BooleanSetting uncapFramerate = setting("Remove Frame Limit",
 		"Turn VSync off and raise Minecraft's frame limit to its maximum. VSync alone caps most "
@@ -45,6 +45,18 @@ public class PerformanceModule extends Module {
 
 	private final BooleanSetting noBobbing = setting("No View Bobbing",
 		"Removes the camera bob, which is pure extra rendering for a cosmetic effect.", true);
+
+	/**
+	 * The overlays are the one thing here that costs frame time in every scene, not just in heavy
+	 * ones: at 500 fps a frame is under two milliseconds, and each HUD string was being drawn twice
+	 * for its shadow. Measured on this project's benchmark (854x480, overlays on): 405 fps with the
+	 * shadows, 575 without, against its own control phase either side.
+	 */
+	private final BooleanSetting fastHud = add(new BooleanSetting("Fast HUD",
+		"Draw the overlays without drop shadows and with square panel corners: the same layout, "
+			+ "fewer quads per frame. On by default — it is the single biggest overlay cost at high "
+			+ "frame rates.",
+		true, changed -> apply()));
 
 	private final BooleanSetting lowDistance = setting("Reduce Render Distance",
 		"Clamp render and simulation distance to 8 chunks. The single biggest frame rate lever, "
@@ -78,6 +90,7 @@ public class PerformanceModule extends Module {
 
 	@Override
 	protected void onDisable() {
+		dev.shrd.client.util.Renderer.setFast(false);
 		Options options = options();
 
 		if (options == null || saved.isEmpty()) {
@@ -117,6 +130,8 @@ public class PerformanceModule extends Module {
 			return;
 		}
 
+		dev.shrd.client.util.Renderer.setFast(fastHud.get());
+
 		Set<OptionInstance<?>> wanted = new HashSet<>();
 
 		if (visualDowngrade.get()) {
@@ -132,11 +147,16 @@ public class PerformanceModule extends Module {
 			apply(wanted, options.chunkSectionFadeInTime(), 0.0);
 			apply(wanted, options.textureFiltering(), TextureFilteringMethod.NONE);
 			apply(wanted, options.vignette(), false);
+			// Rebuilding chunks in the background keeps the frame that follows a block change from
+			// doing the upload itself, which is what the hitch after breaking a block usually is.
+			apply(wanted, options.prioritizeChunkUpdates(), net.minecraft.client.PrioritizeChunkUpdates.NONE);
 		}
 
 		if (uncapFramerate.get()) {
 			apply(wanted, options.enableVsync(), false);
-			// 260 is the top of Minecraft's own frame limit slider.
+			// 260 is not a 260 FPS cap: it is Minecraft's own "unlimited" value
+			// (Options.UNLIMITED_FRAMERATE_CUTOFF), the point at which the frame limiter stops being
+			// called at all. Anything above it is left to the GPU.
 			apply(wanted, options.framerateLimit(), 260);
 		}
 

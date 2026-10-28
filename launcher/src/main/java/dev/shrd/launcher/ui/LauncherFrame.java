@@ -264,7 +264,7 @@ public final class LauncherFrame extends JFrame {
 		rail.setBackground(Theme.RAIL);
 		rail.setLayout(new javax.swing.BoxLayout(rail, javax.swing.BoxLayout.Y_AXIS));
 		rail.setBorder(new EmptyBorder(14, 10, 12, 10));
-		rail.setPreferredSize(new Dimension(96, 10));
+		rail.setPreferredSize(new Dimension(100, 10));
 
 		rail.add(railItem("home", "Home", Icons::home, () -> showPage("home")));
 		rail.add(railItem("instances", "Instances", Icons::instances, () -> showPage("instances")));
@@ -272,7 +272,7 @@ public final class LauncherFrame extends JFrame {
 		rail.add(railItem("servers", "Servers", Icons::server, () -> showPage("servers")));
 		rail.add(railItem("console", "Console", Icons::terminal, () -> showPage("console")));
 		rail.add(railItem("customise", "Customise", Icons::palette, () -> showPage("customise")));
-		rail.add(railItem("settings", "Settings", Icons::gear, () -> showPage("settings")));
+		rail.add(railItem("settings", "Settings", Icons::sliders, () -> showPage("settings")));
 		rail.add(javax.swing.Box.createVerticalGlue());
 
 		rail.add(accountChip());
@@ -411,8 +411,9 @@ public final class LauncherFrame extends JFrame {
 		}
 	}
 
-	/** A rail entry: glyph above a small label, with the accent bar when selected. */
+	/** A rail entry: a tile with the glyph in it, the label underneath, and the accent when chosen. */
 	private static final class RailItem extends JComponent {
+		private static final int TILE_H = 40;
 		private final String label;
 		private final Icons.Glyph glyph;
 		private boolean selected;
@@ -422,8 +423,8 @@ public final class LauncherFrame extends JFrame {
 			this.label = label;
 			this.glyph = glyph;
 			setLayout(null);
-			setPreferredSize(new Dimension(76, 62));
-			setMaximumSize(new Dimension(Integer.MAX_VALUE, 62));
+			setPreferredSize(new Dimension(80, 60));
+			setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
 			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 			setToolTipText(label);
 			addMouseListener(new MouseAdapter() {
@@ -456,24 +457,30 @@ public final class LauncherFrame extends JFrame {
 			Graphics2D g = (Graphics2D) graphics.create();
 			Ui.hints(g);
 
-			if (selected || hover) {
-				g.setColor(selected ? Theme.alpha(Theme.ACCENT_DEEP, 200) : Theme.ROW);
-				Ui.roundRect(g, 0, 0, getWidth(), getHeight(), 8);
-			}
+			// The tile is the thing that reacts, not the whole row: the rail stays quiet, and the
+			// glyph sits in a shape the eye can follow down the column.
+			int tileWidth = Math.min(52, getWidth() - 8);
+			int tileX = (getWidth() - tileWidth) / 2;
 
 			if (selected) {
-				g.setColor(Theme.ACCENT);
-				Ui.roundRect(g, 0, 10, 3, getHeight() - 20, 3);
+				g.setPaint(new java.awt.GradientPaint(0, 2, Theme.ACCENT, 0, 2 + TILE_H, Theme.ACCENT_DEEP));
+				Ui.roundRect(g, tileX, 2, tileWidth, TILE_H, 12);
+				g.setColor(Theme.alpha(Color.WHITE, 90));
+				g.drawRoundRect(tileX, 2, tileWidth - 1, TILE_H - 1, 12, 12);
+			} else if (hover) {
+				g.setColor(Theme.ROW_HOVER);
+				Ui.roundRect(g, tileX, 2, tileWidth, TILE_H, 12);
 			}
 
-			Color color = selected ? Theme.ACCENT_ALT : (hover ? Theme.TEXT : Theme.TEXT_DIM);
-			int size = 20;
-			glyph.paint(g, (getWidth() - size) / 2, 12, size, color);
-			g.setFont(Theme.bold(10));
-			g.setColor(color);
+			Color color = selected ? Theme.ON_ACCENT : (hover ? Theme.TEXT : Theme.TEXT_DIM);
+			int size = 21;
+			glyph.paint(g, (getWidth() - size) / 2, 2 + (TILE_H - size) / 2, size, color);
+
 			String text = label.toUpperCase(java.util.Locale.ROOT);
+			g.setFont(Theme.bold(9));
+			g.setColor(selected ? Theme.TEXT_ACCENT : (hover ? Theme.TEXT : Theme.TEXT_DISABLED));
 			int width = g.getFontMetrics().stringWidth(text);
-			g.drawString(text, (getWidth() - width) / 2, getHeight() - 10);
+			g.drawString(text, (getWidth() - width) / 2, getHeight() - 6);
 			g.dispose();
 		}
 	}

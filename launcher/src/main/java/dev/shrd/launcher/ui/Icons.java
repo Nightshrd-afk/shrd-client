@@ -3,12 +3,18 @@ package dev.shrd.launcher.ui;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.RoundRectangle2D;
 
 /**
- * Hand-drawn glyphs for the rail and buttons. They are drawn rather than loaded so the launcher
- * has no image assets to lose and stays crisp at any scale.
+ * Hand-drawn glyphs for the rail and buttons. They are drawn rather than loaded so the launcher has
+ * no image assets to lose and stays crisp at any scale.
+ * <p>
+ * Every glyph is laid out on the same 24-unit grid — {@code x, y} is the top-left of the box and
+ * {@code size} is its width — with one stroke weight, round joins and caps, and the same optical
+ * margin. That is what makes a rail of seven icons look like a set instead of seven drawings: the
+ * shapes differ, the rules do not.
  */
 public final class Icons {
 
@@ -21,144 +27,191 @@ public final class Icons {
 	private Icons() {
 	}
 
+	/** A roof and a door, drawn as one continuous line so the two never look mismatched. */
 	public static void home(Graphics2D g, int x, int y, int size, Color color) {
-		g.setColor(color);
-		g.setStroke(stroke(size));
+		start(g, size, color);
+		double unit = size;
 		Path2D roof = new Path2D.Double();
-		roof.moveTo(x, y + size * 0.45);
-		roof.lineTo(x + size * 0.5, y + size * 0.1);
-		roof.lineTo(x + size, y + size * 0.45);
+		roof.moveTo(x + unit * 0.10, y + unit * 0.44);
+		roof.lineTo(x + unit * 0.50, y + unit * 0.09);
+		roof.lineTo(x + unit * 0.90, y + unit * 0.44);
 		g.draw(roof);
-		g.draw(new RoundRectangle2D.Double(x + size * 0.17, y + size * 0.42, size * 0.66, size * 0.48, 2, 2));
+		g.draw(new RoundRectangle2D.Double(x + unit * 0.19, y + unit * 0.41, unit * 0.62, unit * 0.50, unit * 0.10, unit * 0.10));
+		g.draw(new java.awt.geom.Line2D.Double(x + unit * 0.50, y + unit * 0.66, x + unit * 0.50, y + unit * 0.91));
 	}
 
+	/** Two cards on top of each other: profiles, not a stack of files. */
 	public static void instances(Graphics2D g, int x, int y, int size, Color color) {
-		g.setColor(color);
-		g.setStroke(stroke(size));
-		double offset = size * 0.16;
-		g.draw(new RoundRectangle2D.Double(x, y + offset, size * 0.72, size * 0.72, 3, 3));
-		g.draw(new RoundRectangle2D.Double(x + offset, y, size * 0.72, size * 0.72, 3, 3));
+		start(g, size, color);
+		double unit = size;
+		g.draw(new RoundRectangle2D.Double(x + unit * 0.08, y + unit * 0.10, unit * 0.68, unit * 0.50, unit * 0.12, unit * 0.12));
+		g.draw(new RoundRectangle2D.Double(x + unit * 0.24, y + unit * 0.40, unit * 0.68, unit * 0.50, unit * 0.12, unit * 0.12));
 	}
 
+	/** Four blocks with even gaps. */
 	public static void mods(Graphics2D g, int x, int y, int size, Color color) {
-		g.setColor(color);
-		double cell = size * 0.36;
-		double gap = size * 0.16;
-		g.fill(new RoundRectangle2D.Double(x, y, cell, cell, 3, 3));
-		g.fill(new RoundRectangle2D.Double(x + cell + gap, y, cell, cell, 3, 3));
-		g.fill(new RoundRectangle2D.Double(x, y + cell + gap, cell, cell, 3, 3));
-		g.fill(new RoundRectangle2D.Double(x + cell + gap, y + cell + gap, cell, cell, 3, 3));
+		start(g, size, color);
+		double unit = size;
+		double cell = unit * 0.34;
+		double gap = unit * 0.16;
+		double radius = unit * 0.11;
+		g.fill(new RoundRectangle2D.Double(x + unit * 0.07, y + unit * 0.07, cell, cell, radius, radius));
+		g.fill(new RoundRectangle2D.Double(x + unit * 0.07 + cell + gap, y + unit * 0.07, cell, cell, radius, radius));
+		g.fill(new RoundRectangle2D.Double(x + unit * 0.07, y + unit * 0.07 + cell + gap, cell, cell, radius, radius));
+		g.fill(new RoundRectangle2D.Double(x + unit * 0.07 + cell + gap, y + unit * 0.07 + cell + gap, cell, cell, radius, radius));
 	}
 
+	/** A window with a prompt in it. */
 	public static void terminal(Graphics2D g, int x, int y, int size, Color color) {
-		g.setColor(color);
-		g.setStroke(stroke(size));
-		g.draw(new RoundRectangle2D.Double(x, y, size, size * 0.86, 4, 4));
+		start(g, size, color);
+		double unit = size;
+		g.draw(new RoundRectangle2D.Double(x + unit * 0.06, y + unit * 0.13, unit * 0.88, unit * 0.74, unit * 0.14, unit * 0.14));
 		Path2D prompt = new Path2D.Double();
-		prompt.moveTo(x + size * 0.22, y + size * 0.3);
-		prompt.lineTo(x + size * 0.4, y + size * 0.45);
-		prompt.lineTo(x + size * 0.22, y + size * 0.6);
+		prompt.moveTo(x + unit * 0.26, y + unit * 0.40);
+		prompt.lineTo(x + unit * 0.42, y + unit * 0.50);
+		prompt.lineTo(x + unit * 0.26, y + unit * 0.60);
 		g.draw(prompt);
-		g.drawLine((int) (x + size * 0.52), (int) (y + size * 0.6), (int) (x + size * 0.78), (int) (y + size * 0.6));
+		g.draw(new java.awt.geom.Line2D.Double(x + unit * 0.54, y + unit * 0.60, x + unit * 0.74, y + unit * 0.60));
 	}
 
+	/** A ring with eight teeth and a hole: readable at 20px, which a cog wheel of lines is not. */
 	public static void gear(Graphics2D g, int x, int y, int size, Color color) {
-		g.setColor(color);
-		g.setStroke(stroke(size));
-		double center = size / 2.0;
-		g.draw(new java.awt.geom.Ellipse2D.Double(x + center * 0.62, y + center * 0.62, center * 0.76, center * 0.76));
+		start(g, size, color);
+		double unit = size;
+		double cx = x + unit * 0.5;
+		double cy = y + unit * 0.5;
+		g.draw(new Ellipse2D.Double(cx - unit * 0.27, cy - unit * 0.27, unit * 0.54, unit * 0.54));
+		g.draw(new Ellipse2D.Double(cx - unit * 0.08, cy - unit * 0.08, unit * 0.16, unit * 0.16));
 
-		for (int i = 0; i < 6; i++) {
-			double angle = Math.toRadians(i * 60);
-			double inner = center * 0.86;
-			double outer = center * 0.98;
-			int x1 = (int) Math.round(x + center + Math.cos(angle) * inner);
-			int y1 = (int) Math.round(y + center + Math.sin(angle) * inner);
-			int x2 = (int) Math.round(x + center + Math.cos(angle) * outer);
-			int y2 = (int) Math.round(y + center + Math.sin(angle) * outer);
-			g.drawLine(x1, y1, x2, y2);
+		for (int i = 0; i < 8; i++) {
+			double angle = Math.toRadians(i * 45);
+			double inner = unit * 0.28;
+			double outer = unit * 0.43;
+			g.draw(new java.awt.geom.Line2D.Double(
+				cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner,
+				cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer));
 		}
 	}
 
 	public static void check(Graphics2D g, int x, int y, int size, Color color) {
-		g.setColor(color);
-		g.setStroke(stroke(size));
+		start(g, size, color);
+		double unit = size;
 		Path2D check = new Path2D.Double();
-		check.moveTo(x + size * 0.15, y + size * 0.55);
-		check.lineTo(x + size * 0.42, y + size * 0.8);
-		check.lineTo(x + size * 0.9, y + size * 0.2);
+		check.moveTo(x + unit * 0.16, y + unit * 0.54);
+		check.lineTo(x + unit * 0.42, y + unit * 0.78);
+		check.lineTo(x + unit * 0.86, y + unit * 0.24);
 		g.draw(check);
 	}
 
 	public static void plus(Graphics2D g, int x, int y, int size, Color color) {
-		g.setColor(color);
-		g.setStroke(stroke(size));
-		g.drawLine((int) (x + size * 0.15), (int) (y + size * 0.5), (int) (x + size * 0.85), (int) (y + size * 0.5));
-		g.drawLine((int) (x + size * 0.5), (int) (y + size * 0.15), (int) (x + size * 0.5), (int) (y + size * 0.85));
+		start(g, size, color);
+		double unit = size;
+		g.draw(new java.awt.geom.Line2D.Double(x + unit * 0.5, y + unit * 0.14, x + unit * 0.5, y + unit * 0.86));
+		g.draw(new java.awt.geom.Line2D.Double(x + unit * 0.14, y + unit * 0.5, x + unit * 0.86, y + unit * 0.5));
 	}
 
 	public static void play(Graphics2D g, int x, int y, int size, Color color) {
-		g.setColor(color);
+		start(g, size, color);
+		double unit = size;
 		Path2D triangle = new Path2D.Double();
-		triangle.moveTo(x + size * 0.25, y + size * 0.12);
-		triangle.lineTo(x + size * 0.85, y + size * 0.5);
-		triangle.lineTo(x + size * 0.25, y + size * 0.88);
+		triangle.moveTo(x + unit * 0.30, y + unit * 0.16);
+		triangle.lineTo(x + unit * 0.82, y + unit * 0.50);
+		triangle.lineTo(x + unit * 0.30, y + unit * 0.84);
 		triangle.closePath();
 		g.fill(triangle);
 	}
 
 	public static void square(Graphics2D g, int x, int y, int size, Color color) {
-		g.setColor(color);
-		g.fill(new RoundRectangle2D.Double(x + size * 0.15, y + size * 0.15, size * 0.7, size * 0.7, 3, 3));
+		start(g, size, color);
+		double unit = size;
+		g.fill(new RoundRectangle2D.Double(x + unit * 0.22, y + unit * 0.22, unit * 0.56, unit * 0.56, unit * 0.12, unit * 0.12));
 	}
 
 	public static void minus(Graphics2D g, int x, int y, int size, Color color) {
-		g.setColor(color);
-		g.setStroke(stroke(size));
-		g.drawLine((int) (x + size * 0.2), (int) (y + size * 0.5), (int) (x + size * 0.8), (int) (y + size * 0.5));
+		start(g, size, color);
+		double unit = size;
+		g.draw(new java.awt.geom.Line2D.Double(x + unit * 0.22, y + unit * 0.5, x + unit * 0.78, y + unit * 0.5));
 	}
 
 	public static void cross(Graphics2D g, int x, int y, int size, Color color) {
-		g.setColor(color);
-		g.setStroke(stroke(size));
-		g.drawLine((int) (x + size * 0.25), (int) (y + size * 0.25), (int) (x + size * 0.75), (int) (y + size * 0.75));
-		g.drawLine((int) (x + size * 0.75), (int) (y + size * 0.25), (int) (x + size * 0.25), (int) (y + size * 0.75));
+		start(g, size, color);
+		double unit = size;
+		g.draw(new java.awt.geom.Line2D.Double(x + unit * 0.26, y + unit * 0.26, x + unit * 0.74, y + unit * 0.74));
+		g.draw(new java.awt.geom.Line2D.Double(x + unit * 0.74, y + unit * 0.26, x + unit * 0.26, y + unit * 0.74));
 	}
 
 	public static void folder(Graphics2D g, int x, int y, int size, Color color) {
-		g.setColor(color);
-		g.setStroke(stroke(size));
-		g.draw(new RoundRectangle2D.Double(x + size * 0.08, y + size * 0.28, size * 0.84, size * 0.5, 3, 3));
-		Path2D tab = new Path2D.Double();
-		tab.moveTo(x + size * 0.14, y + size * 0.28);
-		tab.lineTo(x + size * 0.2, y + size * 0.15);
-		tab.lineTo(x + size * 0.48, y + size * 0.15);
-		tab.lineTo(x + size * 0.54, y + size * 0.28);
-		g.draw(tab);
+		start(g, size, color);
+		double unit = size;
+		Path2D folder = new Path2D.Double();
+		folder.moveTo(x + unit * 0.10, y + unit * 0.76);
+		folder.lineTo(x + unit * 0.10, y + unit * 0.30);
+		folder.lineTo(x + unit * 0.40, y + unit * 0.30);
+		folder.lineTo(x + unit * 0.48, y + unit * 0.20);
+		folder.lineTo(x + unit * 0.84, y + unit * 0.20);
+		folder.lineTo(x + unit * 0.84, y + unit * 0.76);
+		folder.closePath();
+		g.draw(folder);
 	}
 
-	/** A server rack: two stacked units with a status dot, for the Servers page. */
+	/** A server rack: two units, each with a status light. */
 	public static void server(Graphics2D g, int x, int y, int size, Color color) {
-		g.setColor(color);
-		g.setStroke(stroke(size));
-		g.draw(new RoundRectangle2D.Double(x + size * 0.08, y + size * 0.1, size * 0.84, size * 0.34, 3, 3));
-		g.draw(new RoundRectangle2D.Double(x + size * 0.08, y + size * 0.56, size * 0.84, size * 0.34, 3, 3));
-		g.fill(new java.awt.geom.Ellipse2D.Double(x + size * 0.18, y + size * 0.22, size * 0.1, size * 0.1));
-		g.fill(new java.awt.geom.Ellipse2D.Double(x + size * 0.18, y + size * 0.68, size * 0.1, size * 0.1));
+		start(g, size, color);
+		double unit = size;
+		g.draw(new RoundRectangle2D.Double(x + unit * 0.10, y + unit * 0.12, unit * 0.80, unit * 0.32, unit * 0.10, unit * 0.10));
+		g.draw(new RoundRectangle2D.Double(x + unit * 0.10, y + unit * 0.56, unit * 0.80, unit * 0.32, unit * 0.10, unit * 0.10));
+		g.fill(new Ellipse2D.Double(x + unit * 0.20, y + unit * 0.235, unit * 0.09, unit * 0.09));
+		g.fill(new Ellipse2D.Double(x + unit * 0.20, y + unit * 0.675, unit * 0.09, unit * 0.09));
 	}
 
-	/** A painter's palette with three wells, for the Customisation page. */
+	/**
+	 * A painter's palette. The gap in the outline and the thumb hole are what stop it reading as a
+	 * face: a closed oval with dots in it looks like a smiley at 20px.
+	 */
 	public static void palette(Graphics2D g, int x, int y, int size, Color color) {
-		g.setColor(color);
-		g.setStroke(stroke(size));
-		g.draw(new java.awt.geom.Ellipse2D.Double(x + size * 0.08, y + size * 0.08, size * 0.84, size * 0.84));
-		g.fill(new java.awt.geom.Ellipse2D.Double(x + size * 0.28, y + size * 0.24, size * 0.11, size * 0.11));
-		g.fill(new java.awt.geom.Ellipse2D.Double(x + size * 0.52, y + size * 0.20, size * 0.11, size * 0.11));
-		g.fill(new java.awt.geom.Ellipse2D.Double(x + size * 0.62, y + size * 0.48, size * 0.11, size * 0.11));
-		g.fill(new java.awt.geom.Ellipse2D.Double(x + size * 0.30, y + size * 0.58, size * 0.11, size * 0.11));
+		start(g, size, color);
+		double unit = size;
+		g.draw(new java.awt.geom.Arc2D.Double(x + unit * 0.09, y + unit * 0.12, unit * 0.82, unit * 0.74, 35, 295,
+			java.awt.geom.Arc2D.OPEN));
+		g.draw(new Ellipse2D.Double(x + unit * 0.30, y + unit * 0.44, unit * 0.20, unit * 0.20));
+		double dot = unit * 0.13;
+		g.fill(new Ellipse2D.Double(x + unit * 0.24, y + unit * 0.22, dot, dot));
+		g.fill(new Ellipse2D.Double(x + unit * 0.48, y + unit * 0.17, dot, dot));
+		g.fill(new Ellipse2D.Double(x + unit * 0.62, y + unit * 0.30, dot, dot));
 	}
 
-	private static BasicStroke stroke(int size) {
-		return new BasicStroke(Math.max(1.3f, size * 0.09f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+	/** Three sliders: the appearance/settings icon that stays legible at rail size. */
+	public static void sliders(Graphics2D g, int x, int y, int size, Color color) {
+		start(g, size, color);
+		double unit = size;
+		double[] rows = { 0.22, 0.50, 0.78 };
+		double[] knobs = { 0.68, 0.34, 0.56 };
+
+		for (int i = 0; i < rows.length; i++) {
+			double rowY = y + unit * rows[i];
+			g.draw(new java.awt.geom.Line2D.Double(x + unit * 0.12, rowY, x + unit * 0.88, rowY));
+			g.fill(new Ellipse2D.Double(x + unit * knobs[i] - unit * 0.09, rowY - unit * 0.09, unit * 0.18, unit * 0.18));
+		}
+	}
+
+	/** A round badge with a person in it, for the account row. */
+	public static void account(Graphics2D g, int x, int y, int size, Color color) {
+		start(g, size, color);
+		double unit = size;
+		g.draw(new Ellipse2D.Double(x + unit * 0.09, y + unit * 0.09, unit * 0.82, unit * 0.82));
+		g.draw(new Ellipse2D.Double(x + unit * 0.37, y + unit * 0.28, unit * 0.26, unit * 0.26));
+		Path2D shoulders = new Path2D.Double();
+		shoulders.moveTo(x + unit * 0.27, y + unit * 0.74);
+		shoulders.curveTo(x + unit * 0.29, y + unit * 0.56, x + unit * 0.71, y + unit * 0.56, x + unit * 0.73, y + unit * 0.74);
+		g.draw(shoulders);
+	}
+
+	/** The one rule every glyph follows: this colour, this weight, round ends. */
+	private static void start(Graphics2D g, int size, Color color) {
+		g.setColor(color);
+		g.setStroke(new BasicStroke(
+			Math.max(1.35f, size * 0.078f),
+			BasicStroke.CAP_ROUND,
+			BasicStroke.JOIN_ROUND));
 	}
 }

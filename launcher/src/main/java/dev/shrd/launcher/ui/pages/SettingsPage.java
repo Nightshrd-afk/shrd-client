@@ -47,7 +47,7 @@ public final class SettingsPage extends Page {
 	private final Ui.Button updateButton = Ui.primary("Check for updates").size(210, 34);
 	private final JLabel backgroundValue = Ui.dim("none — the built-in gradient");
 	private final JLabel accentValue = Ui.accent("");
-	private final Ui.Field clientIdField = new Ui.Field("Azure application (client) id");
+	private final Ui.Field clientIdField = new Ui.Field("Client id (optional — leave blank to use the built-in one)");
 	private final JLabel signInStatus = Ui.dim("");
 	private final Ui.Button signInButton = Ui.primary("Sign in with Microsoft").size(240, 34);
 
@@ -193,13 +193,10 @@ public final class SettingsPage extends Page {
 		card.body().add(Ui.gap(3));
 		card.body().add(Ui.dim("Offline accounts still work for singleplayer and LAN."));
 		card.body().add(Ui.gap(10));
-		card.body().add(Ui.caps("One-time setup"));
-		card.body().add(Ui.gap(4));
-		card.body().add(Ui.dim("portal.azure.com → App registrations → New registration"));
-		card.body().add(Ui.gap(3));
-		card.body().add(Ui.dim("Authentication → Allow public client flows → Yes"));
-		card.body().add(Ui.gap(3));
-		card.body().add(Ui.dim("Paste the Application (client) ID below. It is public, not a secret."));
+		// No registration step any more: the launcher carries Microsoft's public device-code client id,
+		// so this card is about signing in rather than about setting anything up. The field stays for
+		// anyone who wants Microsoft's consent page to name their own application instead.
+		card.body().add(Ui.dim("Sign in with the Microsoft account that owns Java Edition — no app setup, nothing to register."));
 		card.body().add(Ui.gap(12));
 		card.body().add(Ui.fill(clientIdField));
 		card.body().add(Ui.gap(10));
@@ -221,15 +218,9 @@ public final class SettingsPage extends Page {
 		buttons.add(Ui.secondary("Save client id").size(150, 34).onClick(button -> {
 			app.config.microsoftClientId = clientIdField.getText().trim();
 			app.config.save();
-			app.status("Microsoft client id saved");
-		}));
-		buttons.add(Ui.hgap(10));
-		buttons.add(Ui.secondary("Open Azure").size(140, 34).onClick(button -> {
-			try {
-				java.awt.Desktop.getDesktop().browse(java.net.URI.create(MicrosoftAuth.CLIENT_HELP));
-			} catch (Exception e) {
-				app.status("Could not open a browser: " + e.getMessage());
-			}
+			app.status(clientIdField.getText().isBlank()
+				? "Using the built-in client id"
+				: "Microsoft client id saved");
 		}));
 		buttons.add(Box.createHorizontalGlue());
 		buttons.setAlignmentX(LEFT_ALIGNMENT);

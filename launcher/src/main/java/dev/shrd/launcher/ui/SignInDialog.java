@@ -184,7 +184,7 @@ public final class SignInDialog {
 			return bar;
 		}
 
-		/** Which state the card opens in: needs an app id, ready, or already signed in. */
+		/** Which state the card opens in: ready to sign in, or already signed in. */
 		private void start() {
 			content.removeAll();
 			Account account = app.config.activeAccount();
@@ -194,11 +194,7 @@ public final class SignInDialog {
 				return;
 			}
 
-			if (app.config.microsoftClientId == null || app.config.microsoftClientId.isBlank()) {
-				needsClientId();
-			} else {
-				ready();
-			}
+			ready();
 		}
 
 		// -------------------------------------------------------------- states
@@ -208,53 +204,6 @@ public final class SignInDialog {
 			content.add(centered(heading, Theme.bold(20), Theme.TEXT));
 			content.add(Ui.gap(6));
 			content.add(centered(subtitle, Theme.font(13), Theme.TEXT_DIM));
-		}
-
-		private void needsClientId() {
-			reset("One-time setup", "Microsoft needs an app id before it can sign anyone in");
-			content.add(Ui.gap(20));
-
-			content.add(step("1", "portal.azure.com — App registrations → New registration"));
-			content.add(Ui.gap(7));
-			content.add(step("2", "Authentication → Allow public client flows → Yes"));
-			content.add(Ui.gap(7));
-			content.add(step("3", "Copy the Application (client) ID below"));
-			content.add(Ui.gap(18));
-
-			Ui.Field field = new Ui.Field("Application (client) ID");
-			field.setMaximumSize(new Dimension(CONTENT_W, 36));
-			field.setPreferredSize(new Dimension(CONTENT_W, 36));
-			field.setAlignmentX(CENTER_ALIGNMENT);
-			field.setText(app.config.microsoftClientId == null ? "" : app.config.microsoftClientId);
-			content.add(field);
-			content.add(Ui.gap(14));
-
-			JPanel buttons = Ui.row();
-			Ui.Button save = Ui.primary("Save and continue").size(206, 40);
-			save.onClick(button -> {
-				String id = field.getText().trim();
-
-				if (id.isBlank()) {
-					app.status("Paste the client id first");
-					return;
-				}
-
-				app.config.microsoftClientId = id;
-				app.config.save();
-				ready();
-			});
-			buttons.add(save);
-			buttons.add(Ui.hgap(10));
-			buttons.add(Ui.secondary("Open Azure").size(150, 40).onClick(button -> open(MicrosoftAuth.CLIENT_HELP)));
-			buttons.add(Box.createHorizontalGlue());
-			buttons.setAlignmentX(CENTER_ALIGNMENT);
-			content.add(buttons);
-			content.add(Ui.gap(14));
-			content.add(centered("It is public, not a secret — it is sent to Microsoft in the address bar.",
-				Theme.font(11), Theme.TEXT_DISABLED));
-			content.add(Box.createVerticalGlue());
-			footerNote.setText("Stored in the launcher's config file on this PC");
-			finish();
 		}
 
 		private void ready() {
@@ -474,34 +423,6 @@ public final class SignInDialog {
 			label.setAlignmentX(CENTER_ALIGNMENT);
 			label.setHorizontalAlignment(JLabel.CENTER);
 			return label;
-		}
-
-		private JComponent step(String number, String text) {
-			JPanel row = Ui.row(new BorderLayout(12, 0));
-			JLabel badge = new JLabel(number);
-			badge.setFont(Theme.bold(11));
-			badge.setForeground(Theme.ON_ACCENT);
-			badge.setHorizontalAlignment(JLabel.CENTER);
-			JComponent disc = new JComponent() {
-				@Override
-				protected void paintComponent(Graphics graphics) {
-					Graphics2D g = (Graphics2D) graphics.create();
-					Ui.hints(g);
-					g.setColor(Theme.ACCENT);
-					g.fillOval(0, (getHeight() - 19) / 2, 19, 19);
-					g.setColor(Theme.ON_ACCENT);
-					g.setFont(Theme.bold(11));
-					g.drawString(number, 7, getHeight() / 2 + 4);
-					g.dispose();
-				}
-			};
-			disc.setPreferredSize(new Dimension(19, 19));
-			row.add(disc, BorderLayout.WEST);
-			row.add(Ui.dim(text), BorderLayout.CENTER);
-			row.setAlignmentX(CENTER_ALIGNMENT);
-			row.setMaximumSize(new Dimension(CONTENT_W, 26));
-			row.setPreferredSize(new Dimension(CONTENT_W, 26));
-			return row;
 		}
 
 		/** The one big button: the whole point of this screen, so it is drawn large. */

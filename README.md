@@ -303,17 +303,14 @@ does: device code → Microsoft token → Xbox Live → XSTS → Minecraft servi
 back is the Java Edition account itself: Minecraft name, UUID and skin, shown on the card and made
 the active account, so the token handed to the game as `--access-token` is the one a server accepts.
 
-It needs one thing this project cannot ship: a free Azure application (client) id. That id is
-public by design — it travels in the URL — but it belongs to whoever registers the app:
+There is nothing to set up. The launcher carries Microsoft's public device-code client id
+(`00000000402b5328`) and the live.com device endpoints, the same public identifier other
+third-party Minecraft launchers have used for this flow for years — no secret, no tenant, no Azure
+registration, no portal. Press **Sign In**, type the short code Microsoft shows on its own page, and
+the account comes back ready to join online servers.
 
-1. portal.azure.com → **App registrations** → **New registration** (any name, account type
-   "Personal Microsoft accounts")
-2. **Authentication** → **Allow public client flows** → **Yes**
-3. Copy the **Application (client) ID** from the overview page into Settings
-
-Without that id, offline accounts still work exactly as before: singleplayer and LAN, and servers
-that do not verify sessions. The launcher says so rather than pretending: pressing Sign in with no
-id explains the three steps above.
+Settings keeps an optional **Client id** field for anyone who wants Microsoft's consent page to name
+their own registered application instead. Blank is the normal case and means "use the built-in id".
 
 ## Install
 
@@ -430,17 +427,20 @@ Numbers below are from this machine (Intel UHD integrated graphics, dev client, 
 window at 854x480, 16 chunk render distance, fancy graphics). FPS is the number Minecraft's own
 F3 counter reports, median over a 20 second window:
 
-| Configuration | FPS (median, across five runs) |
+| Configuration | FPS (median) |
 |---|---|
-| **Stock settings — VSync on, 120 FPS limit** | **60** (identical in every run) |
-| Caps removed, all 21 overlays on | 163-365 |
-| Caps removed, overlays off | 327-513 |
-| Caps removed, Performance Mode on | 202-331 |
-| Caps removed, Performance Mode with 8 chunks | 220-375 |
+| **Stock settings — VSync on, 120 FPS limit** | **60** |
+| Caps removed, overlays off | 461 |
+| Caps removed, overlays on | 433 |
+| Caps removed, Performance Mode on | 405 |
+| **Caps removed, Performance Mode with Fast HUD** | **575** |
+| Caps removed, Performance Mode at 8 chunks | 422 |
 
-Those ranges are wide because this machine drifts a lot between runs: the *same* configuration
-measured 163 FPS in one window and 365 FPS in another. That is why every number here is a median
-over 20 seconds and why ranges are quoted instead of a single figure.
+The run-to-run drift on this machine is larger than some of these effects — an earlier run put the
+same overlays-off phase at 558 FPS, a later one at 461 — which is why the benchmark brackets every
+effect with a control phase either side and why this table is one run's phases rather than a mix of
+runs. The Fast HUD figure is the one that is far outside the noise: 405 FPS with shadows, 575
+without, with the control phases on both sides.
 
 **What stops you reaching 200 FPS is the frame rate cap, not the client.** A stock install runs
 with VSync on and Minecraft's 120 FPS frame limit. With those in place the counter read exactly
@@ -449,9 +449,10 @@ of frame work. VSync locks the presented frame rate to the monitor's refresh rat
 most monitors. No amount of optimisation on the client side gets past that; removing the caps is
 what took the same scene from 60 into the 200-500 FPS range.
 
-All 21 overlays together cost well under a millisecond per frame (measured between 6% and 40% of
-the frame rate across five runs — at ~300 FPS the run-to-run noise in world rendering is larger
-than the effect), so with the caps off, overlays are not what stands between you and 200+ FPS.
+**Above ~400 FPS the overlays are the limit, not the graphics settings.** At 550+ FPS a frame is
+under two milliseconds, and each HUD string was drawn twice — once for itself, once for its shadow.
+Drawing them once, and squaring off the panel corners, took the same scene from 405 to 575 FPS
+(about 42%) against a control phase on each side. That is what `Fast HUD` is.
 
 ### Performance Mode
 
@@ -464,6 +465,8 @@ rate, in one switch, and restores every one of them when you switch it off:
   entity shadows, no biome blend, no chunk fade-in, no vignette, fastest leaves, no texture
   filtering.
 - **No view bobbing**.
+- **Fast HUD** — the overlays without per-string drop shadows and with square panel corners. On by
+  default: measured, it is worth about 170 FPS at 480p once the caps are off.
 - **Reduce render distance** (optional, off by default) — clamps render and simulation distance
   to 8 chunks. The biggest lever of all, and the one that also changes how far you can see.
 

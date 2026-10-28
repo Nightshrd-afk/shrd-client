@@ -13,7 +13,25 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
  */
 public final class Renderer {
 
+	/**
+	 * Set by Performance Mode's "Fast HUD" switch.
+	 * <p>
+	 * Measured cost matters here: every overlay is a handful of fills and one text draw per string,
+	 * and at 500+ fps a frame is under two milliseconds, so the drop shadow on each string is a
+	 * measurable slice of the frame. In fast mode text is drawn once instead of twice and rounded
+	 * panels become plain rectangles, which keeps the shapes and drops the extra quads.
+	 */
+	private static volatile boolean fast;
+
 	private Renderer() {
+	}
+
+	public static void setFast(boolean value) {
+		fast = value;
+	}
+
+	public static boolean isFast() {
+		return fast;
 	}
 
 	public static Minecraft mc() {
@@ -30,6 +48,11 @@ public final class Renderer {
 
 	public static void roundedRect(GuiGraphicsExtractor graphics, int x, int y, int width, int height, int color) {
 		if (width <= 0 || height <= 0 || (color >>> 24) == 0) {
+			return;
+		}
+
+		if (fast) {
+			graphics.fill(x, y, x + width, y + height, color);
 			return;
 		}
 
@@ -89,11 +112,11 @@ public final class Renderer {
 	}
 
 	public static void text(GuiGraphicsExtractor graphics, String value, int x, int y, int color) {
-		graphics.text(mc().font, value, x, y, color, true);
+		graphics.text(mc().font, value, x, y, color, !fast);
 	}
 
 	public static void text(GuiGraphicsExtractor graphics, String value, int x, int y, int color, boolean shadow) {
-		graphics.text(mc().font, value, x, y, color, shadow);
+		graphics.text(mc().font, value, x, y, color, shadow && !fast);
 	}
 
 	public static void centeredText(GuiGraphicsExtractor graphics, String value, int centerX, int y, int color) {
