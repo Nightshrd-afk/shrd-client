@@ -17,6 +17,7 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
@@ -230,6 +231,11 @@ public final class ModsPage extends Page {
 		JPanel topRight = Ui.row();
 		topRight.add(searchButton);
 		top.add(topRight, BorderLayout.EAST);
+		// A BoxLayout gives spare height to whatever will take it, and a text field will: without
+		// this cap the search box grows into the whole card when the result list is empty.
+		top.setAlignmentX(LEFT_ALIGNMENT);
+		top.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+		top.setPreferredSize(new Dimension(10, 40));
 		listCard.body().add(top);
 		listCard.body().add(Ui.gap(10));
 
@@ -248,13 +254,19 @@ public final class ModsPage extends Page {
 		pager.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
 		listCard.body().add(pager);
 		listCard.body().add(Ui.gap(10));
+		browseStatus.setAlignmentX(LEFT_ALIGNMENT);
+		browseStatus.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
 		listCard.body().add(browseStatus);
 		listCard.body().add(Ui.gap(8));
 
 		JPanel list = Ui.column();
 		list.add(results);
 		list.add(Box.createVerticalGlue());
-		listCard.body().add(Ui.scroll(list));
+		JScrollPane scroller = Ui.scroll(list);
+		// Its own preference, not the summed height of whatever rows happen to exist; the scroll
+		// pane then takes the rest of the card instead of the search row claiming it.
+		scroller.setPreferredSize(new Dimension(10, 320));
+		listCard.body().add(scroller);
 
 		browse.add(listCard, BorderLayout.CENTER);
 		browse.add(filtersCard(), BorderLayout.WEST);
@@ -413,10 +425,14 @@ public final class ModsPage extends Page {
 
 		Thread worker = new Thread(() -> {
 			try {
-				Path file = Modrinth.install(instance, hit, kind, loader, version);
+				List<Path> files = Modrinth.install(instance, hit, kind, loader, version);
+				Path main = files.get(0);
+				int dependencies = files.size() - 1;
 				SwingUtilities.invokeLater(() -> {
 					button.setText("Installed");
-					app.status("Installed " + file.getFileName() + " into " + Modrinth.label(kind) + " folder");
+					app.status("Installed " + main.getFileName()
+						+ (dependencies > 0 ? " and " + dependencies + (dependencies == 1 ? " dependency" : " dependencies") : "")
+						+ " into the " + Modrinth.label(kind) + " folder");
 					reload();
 				});
 			} catch (Exception e) {

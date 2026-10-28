@@ -1177,3 +1177,95 @@ InstallLocation : C:\Program Files\Shrd Launcher\
 ```
 
 The uninstall was still not run: it would remove the only installed copy on this machine.
+
+### 4b.24 The game starts: the packaged runtime was missing modules
+
+The 1.6.0 install launched Fabric Loader straight into `ProviderNotFoundException: Provider "jar"
+not found`. The cause was the jlink module list in `build-installer.sh`: it described a launcher
+(desktop, http, xml) rather than a game runtime. Fabric opens every mod jar as a `jar:` filesystem,
+which needs `jdk.zipfs`, and two more modules surfaced once that was fixed.
+
+Proved with the same operation Fabric dies on, run under both runtimes against the same jar:
+
+```
+== 1.6.0 runtime (Program Files) ==
+  at java.base/java.nio.file.FileSystems.newFileSystem(Unknown Source)   ← ProviderNotFoundException
+
+== 1.6.1 runtime ==
+jar=C:\…\build\libs\shrd-client-1.6.1.jar
+opened jar: filesystem, entries=90
+```
+
+The list is now
+`java.base,java.compiler,java.desktop,java.logging,java.management,java.naming,java.net.http,java.prefs,java.rmi,java.scripting,java.sql,java.xml,jdk.charsets,jdk.crypto.ec,jdk.crypto.mscapi,jdk.unsupported,jdk.zipfs`
+and `runtime/bin/java --list-modules` in the built image shows them.
+
+**Then the game itself was launched**, twice, from packaged builds:
+
+```
+[main/INFO]: Loading Minecraft 26.2 with Fabric Loader 0.20.1
+[main/INFO]: Loading 63 mods:
+[Render thread/INFO]: Setting user: Night_shrd
+[Render thread/INFO]: OpenAL initialized on device OpenAL Soft on Speakers (Realtek(R) Audio)
+[Render thread/INFO]: Sound engine started
+[Server thread/INFO]: Saving chunks for level 'ServerLevel[New World]'/minecraft:overworld
+```
+
+The only exception left in the log is AppleSkin's mixin warning that JEI is not installed, which is
+a WARN and not a crash. Each launch was left running for 75–120 s and was still alive when the
+launcher stopped waiting.
+
+### 4b.25 Modrinth installs dependencies, and the Mods page fits
+
+Pressing Install on a project now walks that version's `dependencies` array and installs everything
+marked `required`, depth-first, once per project:
+
+```
+installing: uku's Armor HUD
+INFO installed uku's Armor HUD (ukus-armor-hud-fabric-0.12.0+mc26.2.jar) … 49661 bytes
+INFO installed uku's Armor HUD? no — Ukulib (ukulib-fabric-2.1.1+26.2.jar) … 456607 bytes
+  file: ukus-armor-hud-fabric-0.12.0+mc26.2.jar  49661 bytes
+  file: ukulib-fabric-2.1.1+26.2.jar             456607 bytes
+  dependencies installed=1
+```
+
+A version-only dependency is resolved through `/version/{id}`, a project already installed by this
+run is skipped, and a dependency that cannot be fetched is logged rather than failing the mod the
+player asked for.
+
+The stretched Mods page was a height bug, not a size preference: the search row was a
+`BorderLayout` panel inside a `BoxLayout` with no maximum height, so it absorbed all the spare space
+and pushed the results out of the card — the giant empty box in `build/shot/mods-1180.png` is the
+text field. The row is capped at 40 px, the status line at 20 px, and the result scroller keeps its
+own 320 px preference. Re-shot at the default window and at the minimum:
+
+```
+build/shot/mods-1180b.png   1180×740   filters, search, sort, list all inside the card
+build/shot/mods-1000b.png   1000×640   same, at the window's minimum size
+```
+
+### 4b.26 1.6.1 installed over the broken 1.6.0
+
+The rebuilt MSI would not install over the copy already there (`msiexec` exit 1638: another version
+of this product is installed), so the old product code was removed first and the new one installed,
+both in one approved elevation:
+
+```
+uninstall-exit=0
+install-exit=0
+exe-copied=526112
+```
+
+Windows Application Control then refused the MSI's launcher stub — `Get-AuthenticodeSignature` says
+`NotSigned`, and starting it reports "An Application Control policy has blocked this file" — so the
+signed launcher from the same app image was copied into place. With that in place:
+
+```
+SHRD-VERSION 1.6.1 installed=C:\Program Files\Shrd Launcher
+runtime modules present: java.compiler, java.sql, jdk.zipfs
+launch: started pid=37396 … still-running after 120s, world generated and saved
+```
+
+**This is the one part of 1.6.1 that is a workaround, not a fix**: the MSI installs a launcher stub
+that is not code-signed, and on a machine with Application Control enforcing, that stub can be
+blocked. The portable zip carries the signed launcher and is unaffected.

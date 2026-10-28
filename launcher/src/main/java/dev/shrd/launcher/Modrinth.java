@@ -121,34 +121,140 @@ public final class Modrinth {
 	}
 
 	/**
-	 * Downloads a project's newest file that matches the instance. Returns the file written. The
-	 * version list comes back newest first, so the first compatible entry is the one a player
-	 * pressing Install expects.
+	 * Downloads a project and every mod it declares as required, newest matching file first. Returns
+	 * the files written, the project itself first. A library a mod cannot load without (UKU Lib for a
+	 * UKU HUD, Fabric API for anything using it) is the whole point of this: pressing Install once has
+	 * to leave a folder the game can actually start with.
 	 */
-	public static Path install(Instance instance, Hit hit, String type, String loader, String gameVersion) throws IOException {
-		StringBuilder url = new StringBuilder(API).append("/project/").append(hit.id()).append("/version");
-		List<String> params = new ArrayList<>();
+	public static List<Path> install(Instance instance, Hit hit, String type, String loader, String gameVersion) throws IOException {
+		Path folder = folder(instance, type);
+		Files.createDirectories(folder);
 
-		if (loader != null && !loader.isBlank() && !loader.equals(ANY) && MODS.equals(type)) {
-			params.add("loaders=" + encode("[\"" + loader.toLowerCase(Locale.ROOT) + "\"]"));
-		}
+		JsonObject version = newestVersion(hit.id(), type, loader, gameVersion);
 
-		if (gameVersion != null && !gameVersion.isBlank() && !gameVersion.equals(ANY)) {
-			params.add("game_versions=" + encode("[\"" + gameVersion + "\"]"));
-		}
-
-		if (!params.isEmpty()) {
-			url.append("?").append(String.join("&", params));
-		}
-
-		JsonArray versions = JsonParser.parseString(Http.getString(url.toString())).getAsJsonArray();
-
-		if (versions.isEmpty()) {
+		if (version == null) {
 			throw new IOException("Modrinth has no " + label(type) + " release of " + hit.title()
 				+ " for Minecraft " + gameVersion + (loader == null ? "" : " on " + loader));
 		}
 
-		JsonObject version = versions.get(0).getAsJsonObject();
+		List<Path> files = new ArrayList<>();
+		files.add(downloadPrimary(version, folder, hit.title()));
+
+		java.util.Set<String> seen = new java.util.HashSet<>();
+		seen.add(hit.id());
+		installDependencies(instance, loader, gameVersion, version, files, seen, 0);
+		return files;
+	}
+
+	/**
+	 * Walks a version's {@code dependencies} array and installs everything marked required. Optional
+	 * and incompatible entries are left alone, and a project is only visited once, so two mods that
+	 * both need the same library cannot install it twice.
+	 */
+	private static void installDependencies(Instance instance, String loader, String gameVersion,
+		JsonObject version, List<Path> files, java.util.Set<String> seen, int depth) {
+		if (depth >= 4) {
+			return;
+		}
+
+		for (JsonElement element : MinecraftMeta.array(version, "dependencies")) {
+			JsonObject dependency = element.getAsJsonObject();
+
+			if (!"required".equals(MinecraftMeta.string(dependency, "dependency_type", ""))) {
+				continue;
+			}
+
+			String projectId = MinecraftMeta.string(dependency, "project_id", null);
+			JsonObject resolved = null;
+
+			try {
+				if (projectId == null) {
+					// A version-only dependency: the version record names the project.
+					String versionId = MinecraftMeta.string(dependency, "version_id", null);
+
+					if (versionId == null) {
+						continue;
+					}
+
+					resolved = JsonParser.parseString(Http.getString(API + "/version/" + versionId)).getAsJsonObject();
+					projectId = MinecraftMeta.string(resolved, "project_id", null);
+				}
+
+				if (projectId == null || !seen.add(projectId)) {
+					continue;
+				}
+
+				if (resolved == null) {
+					resolved = newestVersion(projectId, MODS, loader, gameVersion);
+				}
+
+				if (resolved == null) {
+					Log.warn("Modrinth has no file for required dependency %s", projectId);
+					continue;
+				}
+
+				files.add(downloadPrimary(resolved, instance.modsDir(), projectTitle(projectId)));
+				installDependencies(instance, loader, gameVersion, resolved, files, seen, depth + 1);
+			} catch (IOException e) {
+				// A dependency that cannot be fetched must not throw away the mod the player asked for;
+				// it is logged, and the caller sees the files that did arrive.
+				Log.warn("could not install dependency %s: %s", projectId == null ? "?" : projectId, e.getMessage());
+			}
+		}
+	}
+
+	/** A project's display name, for the log line; the id is a fine answer if that call fails. */
+	private static String projectTitle(String projectId) {
+		try {
+			JsonObject project = JsonParser.parseString(Http.getString(API + "/project/" + projectId)).getAsJsonObject();
+			return MinecraftMeta.string(project, "title", projectId);
+		} catch (Exception e) {
+			return projectId;
+		}
+	}
+
+	/**
+	 * The newest version matching the instance, narrowing all the way down: loader and game version,
+	 * then game version alone, then anything. The last fallback is what gets a mod installed on a
+	 * version Modrinth tags more loosely than the launcher filters.
+	 */
+	private static JsonObject newestVersion(String projectId, String type, String loader, String gameVersion) throws IOException {
+		List<String> attempts = new ArrayList<>();
+		StringBuilder strict = new StringBuilder(API).append("/project/").append(projectId).append("/version?");
+		List<String> filters = new ArrayList<>();
+
+		if (MODS.equals(type) && loader != null && !loader.isBlank() && !loader.equals(ANY)) {
+			filters.add("loaders=" + encode("[\"" + loader.toLowerCase(Locale.ROOT) + "\"]"));
+		}
+
+		if (gameVersion != null && !gameVersion.isBlank() && !gameVersion.equals(ANY)) {
+			filters.add("game_versions=" + encode("[\"" + gameVersion + "\"]"));
+		}
+
+		if (!filters.isEmpty()) {
+			attempts.add(strict + String.join("&", filters));
+		}
+
+		if (gameVersion != null && !gameVersion.isBlank() && !gameVersion.equals(ANY)) {
+			attempts.add(API + "/project/" + projectId + "/version?game_versions=" + encode("[\"" + gameVersion + "\"]"));
+		}
+
+		attempts.add(API + "/project/" + projectId + "/version");
+
+		for (String url : attempts) {
+			JsonArray versions = JsonParser.parseString(Http.getString(url)).getAsJsonArray();
+
+			if (!versions.isEmpty()) {
+				// Modrinth lists newest first, which is the one a player pressing Install expects.
+				return versions.get(0).getAsJsonObject();
+			}
+		}
+
+		return null;
+	}
+
+	/** Downloads the primary file of a version record into {@code folder}. */
+	private static Path downloadPrimary(JsonObject version, Path folder, String label) throws IOException {
 		JsonArray files = MinecraftMeta.array(version, "files");
 		JsonObject chosen = null;
 
@@ -166,21 +272,20 @@ public final class Modrinth {
 		}
 
 		if (chosen == null) {
-			throw new IOException("Modrinth returned no downloadable file for " + hit.title());
+			throw new IOException("Modrinth returned no downloadable file for " + label);
 		}
 
 		String downloadUrl = MinecraftMeta.string(chosen, "url", null);
 
 		if (downloadUrl == null) {
-			throw new IOException(hit.title() + " has no download URL");
+			throw new IOException(label + " has no download URL");
 		}
 
-		String fileName = MinecraftMeta.string(chosen, "filename", hit.title() + ".jar");
-		Path folder = folder(instance, type);
+		String fileName = MinecraftMeta.string(chosen, "filename", label + ".jar");
 		Files.createDirectories(folder);
 		Path target = folder.resolve(fileName.replaceAll("[\\\\/:*?\"<>|]", "_"));
 		long bytes = Http.download(downloadUrl, target);
-		Log.info("installed %s (%s) into %s — %d bytes", hit.title(), fileName, ShrdPaths.pretty(folder), bytes);
+		Log.info("installed %s (%s) into %s — %d bytes", label, fileName, ShrdPaths.pretty(folder), bytes);
 		return target;
 	}
 

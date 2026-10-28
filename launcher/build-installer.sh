@@ -95,8 +95,12 @@ cp "$LAUNCHER_JAR" "$STAGE/input/"
 # machine that has never seen this repository. jpackage copies input/ into the app's folder, so
 # this lands at app/mods/ — where ModsManager looks for a bundled jar.
 cp "$MOD_JAR" "$STAGE/input/mods/"
+# This list is the game's, not the launcher's. Minecraft and the Fabric loader need more than a GUI
+# runtime: jdk.zipfs (mod jars are zip filesystems), java.sql (libraries reach for java.sql.Time),
+# java.naming, java.management and jdk.charsets. Without them the game dies before the loading
+# screen with a ClassNotFoundException or ProviderNotFoundException instead of starting.
 "$JAVA_HOME/bin/jlink" \
-	--add-modules java.base,java.desktop,java.logging,java.net.http,java.prefs,java.xml,jdk.crypto.ec,jdk.crypto.mscapi,jdk.unsupported \
+	--add-modules java.base,java.compiler,java.desktop,java.logging,java.management,java.naming,java.net.http,java.prefs,java.rmi,java.scripting,java.sql,java.xml,jdk.charsets,jdk.crypto.ec,jdk.crypto.mscapi,jdk.unsupported,jdk.zipfs \
 	--strip-debug \
 	--no-header-files \
 	--no-man-pages \
