@@ -670,7 +670,8 @@ signpost to it:
 
 | What | Evidence |
 |---|---|
-| The page, in a cyan theme | `docs/screenshots/launcher-customise.png` — eight presets, the current accent, a hex box, the system colour picker, and the background card with a real thumbnail of the image in use |
+| The page, in the default theme | `docs/screenshots/launcher-customise.png` — eight presets, the colour wheel with its brightness bar and hex, and the background card with a real thumbnail of the image in use |
+| A colour taken off the wheel and applied | `docs/screenshots/launcher-customise-wheel.png` — `#142972`, picked at 45% brightness, is now the whole launcher |
 | A theme and a background together | `docs/screenshots/launcher-home-themed.png` — cyan accent, `hud.png` behind the pages and full size in the Home banner |
 | Switching the accent in a running window | `docs/screenshots/launcher-customise-theme.png` — the same process after `setAccent("#22C55E")`, captured with `tools/window-shot.ps1`; harness printed `REBUILD-OK accent=#22C55E showing=yes`, no exception in its log |
 
@@ -688,15 +689,32 @@ shows the same file sharp. Both read it through one cached loader (`Backgrounds`
 modified time), so replacing the file on disk is picked up without a restart and painting a page no
 longer decodes a JPEG per frame.
 
-**Verified:** `gradle build` in `launcher/` (BUILD SUCCESSFUL); `--shot customise` in three palettes;
-the live switch above; `--shot settings` to confirm the Appearance card and its button; and the
-config round-trip (the accent and the background path survive a restart, which every `--shot` run
-did after the harness saved `#22C55E`). One bug this caught, now fixed: the first backdrop render
-drew the photo at full strength, which made page text fight the image — it is now blurred and dimmed.
+**The picker is a wheel, not a dialog.** Hue runs round the rim, saturation towards the middle, and
+a brightness bar under it reaches the dark colours the disc alone cannot (the disc is HSV at full
+value, so it stops at white/light). The disc is rendered once per size at twice size and scaled down,
+cached, and the marker is a white ring with a dark one inside it so it stays visible on any hue.
 
-**Not verified:** the system colour-picker dialog itself was not opened in a live session (the hex
-path and the presets were), and no theme was checked on the sign-in window, which inherits the same
-palette by construction.
+| Interaction, driven with real mouse events | Result |
+|---|---|
+| press at the rim, 3 o'clock | `#FF0404` (red, hue 0, saturation 1) |
+| press in the centre | `#FFFFFF` (saturation 0) |
+| press at the top of the rim | `#86FF0D` (green) |
+| wheel pick + brightness bar at 45% + **Use this colour** | theme becomes `#142972`, window rebuilt, page kept at `customise`, scroll kept at 120 |
+
+**Two bugs this caught, now fixed.** The disc's corners stayed opaque black because an `AlphaComposite`
+only touches the pixels its source paints — the mask now covers the whole square. And a dark accent
+themed its own primary button black-on-black, because the on-accent text was always derived towards
+black; `Theme` now checks the accent's luminance and goes to light text (and a slightly lighter deep
+variant) for dark accents.
+
+**Verified:** `gradle build` in `launcher/` (BUILD SUCCESSFUL); `--shot customise` in the default,
+cyan, crimson and a custom navy palette; the live switch above; `--shot settings` to confirm the
+Appearance card and its button; and the config round-trip (the accent and the background path survive
+a restart, which every `--shot` run did after a harness had saved its colour).
+
+**Not verified:** no theme was checked on the sign-in window, which inherits the same palette by
+construction, and the wheel was driven with dispatched mouse events rather than a human hand on a
+physical mouse.
 
 ### 4b.16 1.2.0 published, and the installed 1.1.0 sees it
 

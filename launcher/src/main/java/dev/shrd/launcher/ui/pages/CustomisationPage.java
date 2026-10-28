@@ -3,6 +3,7 @@ package dev.shrd.launcher.ui.pages;
 import dev.shrd.launcher.ShrdPaths;
 import dev.shrd.launcher.ui.App;
 import dev.shrd.launcher.ui.Backgrounds;
+import dev.shrd.launcher.ui.ColorWheel;
 import dev.shrd.launcher.ui.Icons;
 import dev.shrd.launcher.ui.Page;
 import dev.shrd.launcher.ui.Theme;
@@ -10,7 +11,6 @@ import dev.shrd.launcher.ui.Ui;
 
 import javax.imageio.ImageIO;
 import javax.swing.Box;
-import javax.swing.JColorChooser;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -49,6 +49,10 @@ public final class CustomisationPage extends Page {
 	private final JPanel swatches = Ui.row();
 	private final JLabel accentValue = Ui.accent("");
 	private final Ui.Field hexField = new Ui.Field("#A855F7");
+	private final ColorWheel wheel = new ColorWheel(238);
+	private final Brightness brightness = new Brightness();
+	private final PendingSwatch pendingSwatch = new PendingSwatch();
+	private final JLabel pendingValue = Ui.accent("");
 	private final JLabel backgroundValue = Ui.dim("");
 	private final JLabel backgroundNote = Ui.dim("");
 	private final Preview preview = new Preview();
@@ -96,6 +100,8 @@ public final class CustomisationPage extends Page {
 
 		swatches.setMaximumSize(new Dimension(Integer.MAX_VALUE, 112));
 		card.body().add(swatches);
+		card.body().add(Ui.gap(12));
+		card.body().add(wheelBlock());
 		card.body().add(Ui.gap(6));
 
 		JPanel chosen = Ui.row();
@@ -116,8 +122,6 @@ public final class CustomisationPage extends Page {
 		buttons.add(Ui.hgap(10));
 		buttons.add(Ui.secondary("Use this hex").size(140, 34).onClick(button -> useHex()));
 		buttons.add(Ui.hgap(10));
-		buttons.add(Ui.primary("Pick a colour…").size(170, 34).withGlyph(Icons::palette).onClick(button -> pickColour()));
-		buttons.add(Ui.hgap(10));
 		buttons.add(Ui.secondary("Reset to default").size(170, 34).onClick(button -> app.setAccent(Theme.DEFAULT_ACCENT)));
 		buttons.add(Box.createHorizontalGlue());
 		buttons.setAlignmentX(LEFT_ALIGNMENT);
@@ -137,13 +141,85 @@ public final class CustomisationPage extends Page {
 		app.setAccent(Theme.hex(Theme.parse(text, Theme.ACCENT)));
 	}
 
-	private void pickColour() {
-		Color chosen = JColorChooser.showDialog(this, "Launcher accent colour",
-			Theme.parse(Theme.currentHex(), Theme.ACCENT));
+	/** The wheel and everything around it: the picked colour, its hex, and the button that applies it. */
+	private JComponent wheelBlock() {
+		JPanel block = Ui.row(new BorderLayout(26, 0));
+		block.setAlignmentX(LEFT_ALIGNMENT);
+		block.setMaximumSize(new Dimension(Integer.MAX_VALUE, 258));
 
-		if (chosen != null) {
-			app.setAccent(Theme.hex(chosen));
-		}
+		JPanel holder = Ui.column();
+		holder.add(wheel);
+		holder.setPreferredSize(new Dimension(238, 238));
+		holder.setMaximumSize(new Dimension(238, 238));
+		block.add(holder, BorderLayout.WEST);
+
+		JPanel column = Ui.column();
+		column.setPreferredSize(new Dimension(470, 240));
+		column.setMaximumSize(new Dimension(470, Integer.MAX_VALUE));
+		JPanel side = column;
+		side.add(Ui.caps("Any colour you like"));
+		side.add(Ui.gap(8));
+
+		JPanel picked = Ui.row(new BorderLayout(14, 0));
+		picked.add(pendingSwatch, BorderLayout.WEST);
+		JPanel value = Ui.column();
+		pendingValue.setFont(Theme.mono(15));
+		value.add(pendingValue);
+		value.add(Ui.gap(3));
+		value.add(Ui.dim("Drag round the wheel for the hue"));
+		picked.add(value, BorderLayout.CENTER);
+		picked.setAlignmentX(LEFT_ALIGNMENT);
+		picked.setMaximumSize(new Dimension(470, 54));
+		side.add(picked);
+		side.add(Ui.gap(16));
+
+		side.add(Ui.caps("Brightness"));
+		side.add(Ui.gap(6));
+		brightness.setAlignmentX(LEFT_ALIGNMENT);
+		brightness.setPreferredSize(new Dimension(470, 20));
+		brightness.setMaximumSize(new Dimension(470, 20));
+		side.add(brightness);
+		side.add(Ui.gap(16));
+
+		JPanel buttons = Ui.row();
+		Ui.Button apply = Ui.primary("Use this colour").size(200, 38);
+		apply.onClick(button -> app.setAccent(pendingHex()));
+		buttons.add(apply);
+		buttons.add(Ui.hgap(10));
+		buttons.add(Ui.dim("The presets above apply at once."));
+		buttons.add(Box.createHorizontalGlue());
+		buttons.setAlignmentX(LEFT_ALIGNMENT);
+		buttons.setMaximumSize(new Dimension(470, 40));
+		side.add(buttons);
+		side.add(Ui.gap(10));
+		side.add(Ui.dim("The wheel only reaches full brightness — the bar is what makes a colour darker."));
+		side.add(Box.createVerticalGlue());
+
+		JPanel sideHolder = Ui.row();
+		sideHolder.add(side);
+		sideHolder.add(Box.createHorizontalGlue());
+		block.add(sideHolder, BorderLayout.CENTER);
+
+		// Nothing is applied mid-drag on purpose: applying themes the whole window, which would
+		// rebuild this page out from under the mouse. The button at the end commits it.
+		wheel.onChange(this::show);
+		brightness.onChange(level -> {
+			wheel.setValue(level);
+			show(wheel.color());
+		});
+		return block;
+	}
+
+	private String pendingHex() {
+		return Theme.hex(wheel.color());
+	}
+
+	/** Shows a candidate colour in the swatch and the hex label, without applying it. */
+	private void show(Color colour) {
+		pendingSwatch.setColour(colour);
+		pendingValue.setText(Theme.hex(colour));
+		hexField.setText(Theme.hex(colour));
+		brightness.setBase(wheel.fullBrightness());
 	}
 
 	// ---------------------------------------------------------------- background
@@ -229,6 +305,11 @@ public final class CustomisationPage extends Page {
 		if (!accent.equals(shownAccent)) {
 			shownAccent = accent;
 			hexField.setText(accent);
+			wheel.setColor(Theme.parse(accent, Theme.ACCENT));
+			brightness.setValue(wheel.value());
+			brightness.setBase(wheel.fullBrightness());
+			pendingSwatch.setColour(wheel.color());
+			pendingValue.setText(pendingHex());
 		}
 
 		accentValue.setText(Theme.currentHex() + "  ·  " + nameOf(Theme.currentHex()));
@@ -263,6 +344,112 @@ public final class CustomisationPage extends Page {
 	}
 
 	// ---------------------------------------------------------------- pieces
+
+	/**
+	 * The third axis of HSV: a bar from black to the wheel's current colour at full brightness. Without
+	 * it the disc can only produce light colours, because it is painted at full value.
+	 */
+	private final class Brightness extends JComponent {
+		private float value = 1f;
+		private Color base = Color.WHITE;
+		private java.util.function.Consumer<Float> onChange = level -> {
+		};
+
+		private Brightness() {
+			setOpaque(false);
+			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+			setToolTipText("How bright the colour is");
+			MouseAdapter drag = new MouseAdapter() {
+				@Override
+				public void mousePressed(MouseEvent event) {
+					pick(event);
+				}
+
+				@Override
+				public void mouseDragged(MouseEvent event) {
+					pick(event);
+				}
+			};
+			addMouseListener(drag);
+			addMouseMotionListener(drag);
+		}
+
+		private void onChange(java.util.function.Consumer<Float> handler) {
+			this.onChange = handler;
+		}
+
+		/** Sets the colour at full brightness, which is what the bar fades up to. */
+		private void setBase(Color colour) {
+			base = colour;
+			repaint();
+		}
+
+		private void setValue(float level) {
+			value = Math.max(0f, Math.min(1f, level));
+			repaint();
+		}
+
+		private void pick(MouseEvent event) {
+			int span = Math.max(1, getWidth() - 16);
+			float level = (event.getX() - 8) / (float) span;
+			value = Math.max(0f, Math.min(1f, level));
+			repaint();
+			onChange.accept(value);
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			Ui.hints(g);
+			int width = getWidth();
+			int height = getHeight() - 4;
+
+			java.awt.Shape track = new java.awt.geom.RoundRectangle2D.Double(0, 0, width, height, height, height);
+			g.setPaint(new GradientPaint(0, 0, Color.BLACK, width, 0, base));
+			g.fill(track);
+			g.setColor(Theme.alpha(Theme.TEXT, 40));
+			g.draw(track);
+
+			int x = (int) Math.round(8 + value * (width - 16));
+			int y = height / 2;
+			g.setColor(new Color(0, 0, 0, 200));
+			g.fillOval(x - 8, y - 8, 16, 16);
+			g.setColor(Color.WHITE);
+			g.fillOval(x - 6, y - 6, 12, 12);
+			g.setColor(Theme.alpha(Theme.TEXT, 90));
+			g.drawOval(x - 6, y - 6, 12, 12);
+			g.dispose();
+		}
+	}
+
+	/** The colour under the wheel, before it is applied. */
+	private static final class PendingSwatch extends JComponent {
+		private Color colour = Color.WHITE;
+
+		private PendingSwatch() {
+			setPreferredSize(new Dimension(64, 50));
+			setMaximumSize(new Dimension(64, 50));
+		}
+
+		private void setColour(Color value) {
+			colour = value;
+			repaint();
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			Ui.hints(g);
+			java.awt.Shape shape = new java.awt.geom.RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 9, 9);
+			g.setColor(colour);
+			g.fill(shape);
+			g.setColor(new Color(0, 0, 0, 90));
+			g.draw(shape);
+			g.setColor(Theme.alpha(Theme.TEXT, 70));
+			g.draw(shape);
+			g.dispose();
+		}
+	}
 
 	/** One preset: the colour, its name, and a ring when it is the one in use. */
 	private final class Swatch extends JComponent {

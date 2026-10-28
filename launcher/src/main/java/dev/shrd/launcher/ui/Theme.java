@@ -86,9 +86,14 @@ public final class Theme {
 		accentHex = "#" + String.format("%06X", accent.getRGB() & 0xFFFFFF);
 
 		ACCENT = accent;
-		ACCENT_ALT = mix(accent, Color.WHITE, 0.28f);
-		ACCENT_DEEP = mix(accent, Color.BLACK, 0.32f);
-		ON_ACCENT = mix(accent, Color.BLACK, 0.86f);
+
+		// A dark accent needs the opposite treatment from a bright one: the text on top of it has to
+		// go light for contrast, and its own darker variant has to go slightly up rather than down,
+		// or the primary button becomes a black rectangle with black text on it.
+		boolean dark = luminance(accent) < 0.42f;
+		ACCENT_ALT = mix(accent, Color.WHITE, dark ? 0.40f : 0.28f);
+		ACCENT_DEEP = dark ? mix(accent, Color.WHITE, 0.12f) : mix(accent, Color.BLACK, 0.32f);
+		ON_ACCENT = dark ? mix(accent, Color.WHITE, 0.90f) : mix(accent, Color.BLACK, 0.86f);
 
 		WINDOW = mix(new Color(0x0A0612), accent, 0.06f);
 		WINDOW_EDGE = mix(new Color(0x1D1030), accent, 0.18f);
@@ -136,6 +141,11 @@ public final class Theme {
 		} catch (NumberFormatException e) {
 			return fallback;
 		}
+	}
+
+	/** Perceived brightness, 0 (black) to 1 (white). */
+	public static float luminance(Color color) {
+		return (0.2126f * color.getRed() + 0.7152f * color.getGreen() + 0.0722f * color.getBlue()) / 255f;
 	}
 
 	public static String hex(Color color) {

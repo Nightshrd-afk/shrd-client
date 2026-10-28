@@ -211,10 +211,10 @@ The current release: https://github.com/Nightshrd-afk/shrd-client/releases/tag/v
 - **Console** — the launcher's own steps and the game's output, live, colour-coded, with the game's
   log file one press away.
 - **Customise** — the launcher's colour theme and background, in one place and applied without a
-  restart. A theme is one accent colour (eight presets, a hex box, or the system colour picker) and
-  every panel, row, border and gradient is derived from it, so the whole launcher changes rather
-  than one button. The background is any PNG or JPG, blurred and dimmed behind the pages and shown
-  full size in the Home banner.
+  restart. A theme is one accent colour: eight presets, a colour wheel (hue and saturation round the
+  disc, brightness on the bar under it) or a hex code, and every panel, row, border and gradient is
+  derived from it, so the whole launcher changes rather than one button. The background is any PNG
+  or JPG, blurred and dimmed behind the pages and shown full size in the Home banner.
 - **Settings** — Java detection (the bundled `.toolchain` JDK, then `JAVA_HOME`, then `PATH`),
   default memory and JVM arguments, offline accounts (pick a name; the launcher
   derives the same offline UUID Minecraft's own launcher uses), and Microsoft sign-in.

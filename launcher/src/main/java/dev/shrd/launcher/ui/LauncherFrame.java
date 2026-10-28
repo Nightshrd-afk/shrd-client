@@ -45,6 +45,8 @@ public final class LauncherFrame extends JFrame {
 	private final JPanel root = new Backdrop();
 	private final Map<String, Page> pages = new LinkedHashMap<>();
 	private final Map<String, RailItem> railItems = new LinkedHashMap<>();
+	/** Where each page was scrolled to, so a theme change does not throw the player back to the top. */
+	private final Map<String, Integer> scrolls = new LinkedHashMap<>();
 	private final Ui.Progress progress = new Ui.Progress();
 	private final JPanel progressHolder = Ui.row(new BorderLayout());
 	// Recreated on every rebuild, because a label keeps the colour it was constructed with.
@@ -73,6 +75,7 @@ public final class LauncherFrame extends JFrame {
 
 	/** Builds the chrome and every page against the current palette. */
 	private void build() {
+		rememberScrolls();
 		app.resetListeners();
 		app.onShowPage(this::showPage);
 		app.onStage((stage, detail) -> onStage(stage));
@@ -101,6 +104,47 @@ public final class LauncherFrame extends JFrame {
 		root.revalidate();
 		root.repaint();
 		app.refresh();
+		javax.swing.SwingUtilities.invokeLater(this::restoreScrolls);
+	}
+
+	private void rememberScrolls() {
+		for (Map.Entry<String, Page> entry : pages.entrySet()) {
+			javax.swing.JScrollPane pane = scrollOf(entry.getValue());
+
+			if (pane != null) {
+				scrolls.put(entry.getKey(), pane.getVerticalScrollBar().getValue());
+			}
+		}
+	}
+
+	private void restoreScrolls() {
+		for (Map.Entry<String, Page> entry : pages.entrySet()) {
+			javax.swing.JScrollPane pane = scrollOf(entry.getValue());
+			Integer value = scrolls.get(entry.getKey());
+
+			if (pane != null && value != null) {
+				pane.getVerticalScrollBar().setValue(value);
+			}
+		}
+	}
+
+	/** The first scroll pane in a page, which is the one every page wraps its body in. */
+	private static javax.swing.JScrollPane scrollOf(java.awt.Component root) {
+		if (root instanceof javax.swing.JScrollPane pane) {
+			return pane;
+		}
+
+		if (root instanceof java.awt.Container container) {
+			for (java.awt.Component child : container.getComponents()) {
+				javax.swing.JScrollPane found = scrollOf(child);
+
+				if (found != null) {
+					return found;
+				}
+			}
+		}
+
+		return null;
 	}
 
 	public void rebuild() {
