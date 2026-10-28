@@ -3,6 +3,7 @@ package dev.shrd.launcher.ui.pages;
 import dev.shrd.launcher.Account;
 import dev.shrd.launcher.Log;
 import dev.shrd.launcher.ShrdPaths;
+import dev.shrd.launcher.auth.MicrosoftAuth;
 import dev.shrd.launcher.launch.JavaRuntime;
 import dev.shrd.launcher.ui.App;
 import dev.shrd.launcher.ui.Icons;
@@ -14,9 +15,16 @@ import javax.swing.Box;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.Toolkit;
+import java.awt.datatransfer.StringSelection;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 /** Java, defaults, accounts and where the launcher keeps its files. */
 public final class SettingsPage extends Page {
@@ -41,6 +49,10 @@ public final class SettingsPage extends Page {
 	private final JLabel versionValue = Ui.accent(dev.shrd.launcher.Version.CURRENT);
 	private final JLabel updateStatus = Ui.dim("");
 	private final Ui.Button updateButton = Ui.primary("Check for updates").size(210, 34);
+	private final JLabel backgroundValue = Ui.dim("none — the built-in purple gradient");
+	private final Ui.Field clientIdField = new Ui.Field("Azure application (client) id");
+	private final JLabel signInStatus = Ui.dim("");
+	private final Ui.Button signInButton = Ui.primary("Sign in with Microsoft").size(240, 34);
 
 	public SettingsPage(App app) {
 		super(app, "Settings", "Launcher-wide defaults; per-instance settings live on the Instances page");
@@ -50,7 +62,11 @@ public final class SettingsPage extends Page {
 		column.add(Ui.gap(16));
 		column.add(defaultsCard());
 		column.add(Ui.gap(16));
+		column.add(appearanceCard());
+		column.add(Ui.gap(16));
 		column.add(accountsCard());
+		column.add(Ui.gap(16));
+		column.add(microsoftCard());
 		column.add(Ui.gap(16));
 		column.add(dataCard());
 		column.add(Ui.gap(16));
@@ -93,6 +109,8 @@ public final class SettingsPage extends Page {
 		card.body().add(buttons);
 		card.body().add(Ui.gap(10));
 		javaStatus.setAlignmentX(LEFT_ALIGNMENT);
+		// A JDK path is long: without a ceiling the label widens the card past the window.
+		javaStatus.setMaximumSize(new Dimension(720, 40));
 		card.body().add(javaStatus);
 		return card;
 	}
@@ -151,9 +169,185 @@ public final class SettingsPage extends Page {
 		return row;
 	}
 
+	/** The Home banner: the one piece of the launcher that is purely yours. */
+	private JPanel appearanceCard() {
+		Ui.Card card = new Ui.Card("Appearance");
+		card.body().add(Ui.dim("The banner behind your skin on Home. Any PNG or JPG works."));
+		card.body().add(Ui.gap(3));
+		card.body().add(Ui.dim("It is copied into the launcher's folder, so the original can move later."));
+		card.body().add(Ui.gap(12));
+		card.body().add(rowLine("Background", backgroundValue));
+		card.body().add(Ui.gap(12));
+
+		JPanel buttons = Ui.row();
+		buttons.add(Ui.primary("Choose image…").size(170, 34).withGlyph(Icons::folder).onClick(button -> chooseBackground()));
+		buttons.add(Ui.hgap(10));
+		buttons.add(Ui.secondary("Reset to gradient").size(170, 34).onClick(button -> {
+			app.config.backgroundImage = "";
+			app.config.save();
+			app.status("Background reset");
+			app.refresh();
+		}));
+		buttons.add(Box.createHorizontalGlue());
+		buttons.setAlignmentX(LEFT_ALIGNMENT);
+		buttons.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+		card.body().add(buttons);
+		return card;
+	}
+
+	private void chooseBackground() {
+		JFileChooser chooser = new JFileChooser();
+		chooser.setDialogTitle("Pick a background image");
+		chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+		chooser.setFileFilter(new FileNameExtensionFilter("Images (PNG, JPG, GIF, BMP)", "png", "jpg", "jpeg", "gif", "bmp"));
+
+		if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+			return;
+		}
+
+		try {
+			Path source = chooser.getSelectedFile().toPath();
+			Path folder = ShrdPaths.backgrounds();
+			Files.createDirectories(folder);
+			Path target = folder.resolve(source.getFileName().toString());
+			Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+			app.config.backgroundImage = target.toAbsolutePath().toString();
+			app.config.save();
+			app.status("Background set — it is on the Home page now");
+			app.refresh();
+		} catch (Exception e) {
+			app.status("Could not use that image: " + e.getMessage());
+		}
+	}
+
+	/** Microsoft sign-in: real tokens, so online servers accept the account. */
+	private JPanel microsoftCard() {
+		Ui.Card card = new Ui.Card("Microsoft sign-in");
+		card.body().add(Ui.dim("Lets you join servers that verify you — Donut SMP and most public servers."));
+		card.body().add(Ui.gap(3));
+		card.body().add(Ui.dim("Offline accounts still work for singleplayer and LAN."));
+		card.body().add(Ui.gap(10));
+		card.body().add(Ui.caps("One-time setup"));
+		card.body().add(Ui.gap(4));
+		card.body().add(Ui.dim("portal.azure.com → App registrations → New registration"));
+		card.body().add(Ui.gap(3));
+		card.body().add(Ui.dim("Authentication → Allow public client flows → Yes"));
+		card.body().add(Ui.gap(3));
+		card.body().add(Ui.dim("Paste the Application (client) ID below. It is public, not a secret."));
+		card.body().add(Ui.gap(12));
+		card.body().add(Ui.fill(clientIdField));
+		card.body().add(Ui.gap(10));
+
+		JPanel buttons = Ui.row();
+		signInButton.onClick(button -> startMicrosoftSignIn());
+		buttons.add(signInButton);
+		buttons.add(Ui.hgap(10));
+		buttons.add(Ui.secondary("Save client id").size(150, 34).onClick(button -> {
+			app.config.microsoftClientId = clientIdField.getText().trim();
+			app.config.save();
+			app.status("Microsoft client id saved");
+		}));
+		buttons.add(Ui.hgap(10));
+		buttons.add(Ui.secondary("Open Azure").size(140, 34).onClick(button -> {
+			try {
+				java.awt.Desktop.getDesktop().browse(java.net.URI.create(MicrosoftAuth.CLIENT_HELP));
+			} catch (Exception e) {
+				app.status("Could not open a browser: " + e.getMessage());
+			}
+		}));
+		buttons.add(Box.createHorizontalGlue());
+		buttons.setAlignmentX(LEFT_ALIGNMENT);
+		buttons.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+		card.body().add(buttons);
+		card.body().add(Ui.gap(10));
+		signInStatus.setAlignmentX(LEFT_ALIGNMENT);
+		card.body().add(signInStatus);
+		return card;
+	}
+
+	/**
+	 * Device-code flow: ask Microsoft for a code, show it, poll in the background, then install the
+	 * account. The polling is deliberately off the event thread — a code can wait minutes.
+	 */
+	private void startMicrosoftSignIn() {
+		String clientId = clientIdField.getText().trim();
+
+		if (clientId.isBlank()) {
+			JOptionPane.showMessageDialog(this,
+				"Paste an Azure application (client) id first.\n\nportal.azure.com → App registrations → New registration,\n"
+					+ "then Authentication → Allow public client flows = Yes.\nThe Application (client) ID is on the overview page.",
+				"A client id is needed", JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+
+		app.config.microsoftClientId = clientId;
+		app.config.save();
+		signInButton.setEnabled(false);
+		signInStatus.setForeground(Theme.TEXT_DIM);
+		signInStatus.setText("Asking Microsoft for a code…");
+
+		Thread worker = new Thread(() -> {
+			try {
+				MicrosoftAuth.Device device = MicrosoftAuth.begin(clientId);
+				SwingUtilities.invokeLater(() -> {
+					signInStatus.setForeground(Theme.TEXT_ACCENT);
+					signInStatus.setText("Go to " + device.verificationUri() + " and enter " + device.userCode() + "  (code copied)");
+					Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(device.userCode()), null);
+
+					try {
+						java.awt.Desktop.getDesktop().browse(java.net.URI.create(device.verificationUri()));
+					} catch (Exception ignored) {
+						// The URL is on screen either way.
+					}
+				});
+
+				Account account = MicrosoftAuth.complete(
+					MicrosoftAuth.await(clientId, device, message -> SwingUtilities.invokeLater(() -> signInStatus.setText(message))),
+					message -> SwingUtilities.invokeLater(() -> signInStatus.setText(message)));
+
+				SwingUtilities.invokeLater(() -> installAccount(account));
+			} catch (Exception e) {
+				SwingUtilities.invokeLater(() -> {
+					signInButton.setEnabled(true);
+					signInStatus.setForeground(Theme.BAD);
+					signInStatus.setText(e.getMessage() == null ? e.toString() : e.getMessage());
+				});
+			}
+		}, "shrd-microsoft-signin");
+
+		worker.setDaemon(true);
+		worker.start();
+	}
+
+	/** Replaces an account with the same name in place, so a re-sign-in does not duplicate it. */
+	private void installAccount(Account signedIn) {
+		Account existing = app.config.findAccount(signedIn.name);
+
+		if (existing != null) {
+			existing.type = signedIn.type;
+			existing.uuid = signedIn.uuid;
+			existing.accessToken = signedIn.accessToken;
+			existing.refreshToken = signedIn.refreshToken;
+			existing.xuid = signedIn.xuid;
+			existing.skinUrl = signedIn.skinUrl;
+		} else {
+			app.config.accounts.add(signedIn);
+		}
+
+		app.config.activeAccount = signedIn.name;
+		app.config.save();
+		signInButton.setEnabled(true);
+		signInStatus.setForeground(Theme.GOOD);
+		signInStatus.setText("Signed in as " + signedIn.name + " — online servers will accept this account");
+		app.status("Signed in as " + signedIn.name);
+		app.refresh();
+	}
+
 	private JPanel accountsCard() {
 		Ui.Card card = new Ui.Card("Accounts");
-		card.body().add(Ui.dim("Shrd Launcher plays offline accounts: pick a name and the launcher derives the same offline UUID Minecraft's own launcher uses. Online Microsoft sign-in is not wired up."));
+		card.body().add(Ui.dim("An offline account is just a name: the launcher derives the offline UUID"));
+		card.body().add(Ui.gap(3));
+		card.body().add(Ui.dim("Minecraft's own launcher uses. Sign in further down to play online."));
 		card.body().add(Ui.gap(12));
 		card.body().add(accountRows);
 		card.body().add(Ui.gap(6));
@@ -361,6 +555,16 @@ public final class SettingsPage extends Page {
 			accountRows.add(Ui.gap(8));
 		}
 
+		if (clientIdField.getText().isBlank() && !app.config.microsoftClientId.isBlank()) {
+			clientIdField.setText(app.config.microsoftClientId);
+		}
+
+		String background = app.config.backgroundImage;
+		backgroundValue.setText(background == null || background.isBlank()
+			? "none — the built-in purple gradient"
+			: Ui.elide(ShrdPaths.pretty(Path.of(background)), 52));
+		backgroundValue.setToolTipText(background == null || background.isBlank() ? "" : background);
+
 		Log.info("settings reloaded (%d account(s))", app.config.accounts.size());
 		revalidate();
 		repaint();
@@ -375,7 +579,7 @@ public final class SettingsPage extends Page {
 		JPanel titles = Ui.column();
 		titles.add(Ui.text(account.name));
 		titles.add(Ui.gap(2));
-		titles.add(Ui.dim("offline  ·  " + account.uuid()));
+		titles.add(Ui.dim(account.kind() + "  ·  " + account.uuid()));
 		row.add(titles, BorderLayout.CENTER);
 
 		JPanel controls = Ui.row();
@@ -390,6 +594,16 @@ public final class SettingsPage extends Page {
 			controls.add(Ui.hgap(8));
 		} else {
 			controls.add(Ui.accent("active"));
+			controls.add(Ui.hgap(8));
+		}
+
+		if (account.online()) {
+			controls.add(Ui.secondary("Sign out").size(96, 30).onClick(button -> {
+				account.signOut();
+				app.config.save();
+				app.status("Signed out of " + account.name);
+				app.refresh();
+			}));
 			controls.add(Ui.hgap(8));
 		}
 

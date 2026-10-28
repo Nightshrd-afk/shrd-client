@@ -106,6 +106,83 @@ public final class Http {
 		throw last != null ? last : new IOException("could not download " + url);
 	}
 
+	/**
+	 * A response kept whole, status included, for the endpoints where the status is the answer:
+	 * Microsoft's device-code polling returns 400 with {@code authorization_pending} while the user
+	 * is still typing the code, and that is not an error.
+	 */
+	public record Reply(int status, String body) {
+		public boolean ok() {
+			return status / 100 == 2;
+		}
+	}
+
+	/** A GET with headers, for the endpoints that need a bearer token. */
+	public static Reply get(String url, java.util.Map<String, String> headers) throws IOException {
+		HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
+			.timeout(Duration.ofMinutes(1))
+			.header("User-Agent", "shrd-launcher/1.0.0")
+			.header("Accept", "application/json")
+			.GET();
+
+		if (headers != null) {
+			for (java.util.Map.Entry<String, String> header : headers.entrySet()) {
+				builder.header(header.getKey(), header.getValue());
+			}
+		}
+
+		try {
+			HttpResponse<String> response = CLIENT.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+			return new Reply(response.statusCode(), response.body());
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new IOException("interrupted while fetching " + url, e);
+		}
+	}
+
+	public static Reply postForm(String url, java.util.Map<String, String> fields, java.util.Map<String, String> headers) throws IOException {
+		StringBuilder form = new StringBuilder();
+
+		for (java.util.Map.Entry<String, String> field : fields.entrySet()) {
+			if (form.length() > 0) {
+				form.append('&');
+			}
+
+			form.append(java.net.URLEncoder.encode(field.getKey(), StandardCharsets.UTF_8))
+				.append('=')
+				.append(java.net.URLEncoder.encode(field.getValue(), StandardCharsets.UTF_8));
+		}
+
+		return post(url, form.toString(), "application/x-www-form-urlencoded", headers);
+	}
+
+	public static Reply postJson(String url, String json, java.util.Map<String, String> headers) throws IOException {
+		return post(url, json, "application/json", headers);
+	}
+
+	private static Reply post(String url, String body, String contentType, java.util.Map<String, String> headers) throws IOException {
+		HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
+			.timeout(Duration.ofMinutes(1))
+			.header("User-Agent", "shrd-launcher/1.0.0")
+			.header("Content-Type", contentType)
+			.header("Accept", "application/json")
+			.POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8));
+
+		if (headers != null) {
+			for (java.util.Map.Entry<String, String> header : headers.entrySet()) {
+				builder.header(header.getKey(), header.getValue());
+			}
+		}
+
+		try {
+			HttpResponse<String> response = CLIENT.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+			return new Reply(response.statusCode(), response.body());
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new IOException("interrupted while posting to " + url, e);
+		}
+	}
+
 	public static void sleep(long millis) {
 		try {
 			Thread.sleep(millis);

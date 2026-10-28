@@ -52,6 +52,7 @@ public final class LauncherFrame extends JFrame {
 	public LauncherFrame(LauncherConfig config, String initialPage) {
 		super("Shrd Launcher");
 		this.app = new App(config);
+		app.onShowPage(this::showPage);
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setUndecorated(true);
 		setIconImage(windowIcon());
@@ -132,6 +133,8 @@ public final class LauncherFrame extends JFrame {
 		bar.setBorder(new EmptyBorder(10, 16, 10, 10));
 
 		JPanel brand = Ui.row();
+		brand.add(new BrandMark());
+		brand.add(Ui.hgap(8));
 		brand.add(new Ui.Wordmark("shrd", 20));
 		brand.add(Ui.hgap(10));
 		brand.add(Ui.caps("launcher"));
@@ -358,6 +361,30 @@ public final class LauncherFrame extends JFrame {
 			g.setColor(Theme.ON_ACCENT);
 			int width = g.getFontMetrics().stringWidth(initial);
 			g.drawString(initial, (getWidth() - width) / 2, getHeight() / 2 + 6);
+			g.dispose();
+		}
+	}
+
+	/** The shrd gem, next to the name: the same artwork as the window and installer icon. */
+	private static final class BrandMark extends JComponent {
+		private final java.awt.Image image = windowIcon();
+
+		private BrandMark() {
+			setPreferredSize(new Dimension(24, 24));
+			setMaximumSize(new Dimension(24, 24));
+			setToolTipText("Shrd Launcher");
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			if (image == null) {
+				return;
+			}
+
+			Graphics2D g = (Graphics2D) graphics.create();
+			Ui.hints(g);
+			g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+			g.drawImage(image, 0, 1, 22, 22, null);
 			g.dispose();
 		}
 	}

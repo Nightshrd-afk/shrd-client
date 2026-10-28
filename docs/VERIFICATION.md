@@ -517,6 +517,46 @@ development tree; the `runtime/` the package carries is the launcher's own trimm
 what Minecraft runs on. So the package installs and runs exactly as declared, but playing needs a
 Java 25 the user supplies. Fetching a runtime automatically is the next thing this launcher needs.
 
+### 4b.11 The redesigned Home, the player's skin, and Microsoft sign-in
+
+Rendered with the launcher's own `--shot` path, so these are real paints of the real frame, not
+mock-ups:
+
+| What | Evidence |
+|---|---|
+| The gem next to the name | `docs/screenshots/launcher-home.png`, top-left, drawn from `/icon.png` |
+| The banner, the skin, the account chip | same shot: hero, figure, `Night_shrd` chip with the skin's own face |
+| A background image behind it | `docs/screenshots/launcher-home-background.png` (a screenshot used as a wallpaper; the left scrim keeps the name readable) |
+| Settings with the new cards | `docs/screenshots/launcher-settings.png` — Appearance, Accounts, Microsoft sign-in |
+| Instances page still renders | `--shot instances` after the change, unchanged |
+
+The skin is fetched by name from mc-heads.net for an offline account (and from the Minecraft
+profile for a signed-in one), cached under `~/.launcher/skins/<name>.png` and drawn as a front-view
+figure with its overlay layer.
+
+**Two bugs this caught, now fixed.**
+
+1. **Legacy 64x32 skins painted opaque patches over the legs and sleeves.** The mirroring that makes
+   a legacy skin fill the 64x64 layout also wrote the limb *fronts* into the limb *overlay* regions,
+   which are empty in a legacy skin. Only the two fronts are mirrored now. The face-on-the-trousers
+   look in the first render was this.
+2. **Settings grew wider than the window.** Long description labels have content-sized preferred
+   widths, so three of them pushed the card past the viewport and clipped the right-hand switches
+   and the third Java button. The long lines are now split, and the JDK path label has a width
+   ceiling.
+
+A note on the render that looks wrong but is not: Notch's skin has a **fully opaque black hat
+layer** (40,8 is opaque in 64/64 pixels), so it covers the face exactly as it does in game. The
+launcher is not supposed to be cleverer than the game here.
+
+**Microsoft sign-in is implemented but not exercised end to end.** The device-code request was sent
+to the real endpoint with a deliberately invalid id and came back with Microsoft's own words:
+`HTTP 400: AADSTS700038: 00000000-… is not a valid application identifier`, which proves the request
+shape, the JSON parsing and the error path. What has **not** been run is a real sign-in: that needs
+an Azure client id and a Microsoft account with Minecraft on it, and neither exists here. So the
+Xbox Live → XSTS → Minecraft → profile steps are code that has never carried a real token, and the
+`--access-token` a signed-in account would pass to the game has never been accepted by a server.
+
 ## 5. Mock-up test harness in the repo
 
 - `tools/UiCheck.java` — colour assertions on a screenshot (exits non-zero on failure).

@@ -195,8 +195,11 @@ The current release: https://github.com/Nightshrd-afk/shrd-client/releases/tag/v
 
 ### What it does
 
-- **Home** — instance and account pickers, a Play button that turns into Stop, live progress, and a
-  summary of what is about to launch.
+- **Home** — a banner with your own skin standing in it (fetched by name, or from the signed-in
+  profile), the account chip, and a Play button on every profile that turns into Stop. The banner
+  background is yours: Settings → Appearance takes any PNG or JPG and copies it into the launcher's
+  folder. Without one it is the purple gradient.
+- **Accounts** — offline names, or **Microsoft sign-in** for servers that verify you.
 - **Instances** — create, edit and delete instances. Each one gets its own folder, mods, worlds and
   settings, with a Minecraft version (read live from Mojang), a mod loader, memory, an optional
   fixed window size and extra JVM arguments.
@@ -206,8 +209,8 @@ The current release: https://github.com/Nightshrd-afk/shrd-client/releases/tag/v
 - **Console** — the launcher's own steps and the game's output, live, colour-coded, with the game's
   log file one press away.
 - **Settings** — Java detection (the bundled `.toolchain` JDK, then `JAVA_HOME`, then `PATH`),
-  default memory and JVM arguments, and offline accounts (pick a name; the launcher derives the same
-offline UUID Minecraft's own launcher uses).
+  default memory and JVM arguments, the Home background, offline accounts (pick a name; the launcher
+  derives the same offline UUID Minecraft's own launcher uses), and Microsoft sign-in.
 
 Everything lives in `~/.shrd-launcher`: shared `libraries`, `assets` and `versions` caches, one
 folder per instance under `instances/`, and launcher logs under `logs/`. Nothing is written into the
@@ -242,13 +245,25 @@ It also takes flags, which is how the launcher's own verification drives it:
 --manifest <url>               use this manifest for the check/update instead of the saved one
 ```
 
-### One honest limitation
+### Microsoft sign-in, and what it still needs
 
-Accounts are **offline**: the launcher plays under a name you choose and cannot sign in to
-Microsoft, so multiplayer servers with authentication on will reject it (singleplayer and LAN work).
-Microsoft sign-in needs a client ID registered in Azure by whoever ships the launcher, and this one
-ships without one rather than pretending. Everything else in the launch path is the real thing -
-the only thing missing is the login.
+Servers that verify you — Donut SMP and most public servers — need a real Microsoft session.
+**Settings → Microsoft sign-in** runs the same chain the official launcher does: device code →
+Microsoft token → Xbox Live → XSTS → Minecraft services → profile. The Minecraft token it ends with
+is handed to the game as `--access-token`, so the server accepts the session; the profile also
+supplies the real name, UUID and skin.
+
+It needs one thing this project cannot ship: a free Azure application (client) id. That id is
+public by design — it travels in the URL — but it belongs to whoever registers the app:
+
+1. portal.azure.com → **App registrations** → **New registration** (any name, account type
+   "Personal Microsoft accounts")
+2. **Authentication** → **Allow public client flows** → **Yes**
+3. Copy the **Application (client) ID** from the overview page into Settings
+
+Without that id, offline accounts still work exactly as before: singleplayer and LAN, and servers
+that do not verify sessions. The launcher says so rather than pretending: pressing Sign in with no
+id explains the three steps above.
 
 ## Install
 

@@ -26,6 +26,8 @@ public final class App {
 	private final List<StageListener> stageListeners = new ArrayList<>();
 	private Consumer<String> statusHandler = text -> {
 	};
+	private Consumer<String> pageHandler = page -> {
+	};
 	private Consumer<Double> progressHandler = fraction -> {
 	};
 
@@ -98,6 +100,15 @@ public final class App {
 
 	public void setStatusHandler(Consumer<String> handler) {
 		this.statusHandler = handler;
+	}
+
+	/** Lets a page navigate, without every page holding a reference to the window. */
+	public void onShowPage(Consumer<String> handler) {
+		this.pageHandler = handler;
+	}
+
+	public void showPage(String id) {
+		pageHandler.accept(id);
 	}
 
 	public void setProgressHandler(Consumer<Double> handler) {

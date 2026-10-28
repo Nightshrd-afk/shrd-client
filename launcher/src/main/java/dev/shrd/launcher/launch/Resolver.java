@@ -329,9 +329,11 @@ public final class Resolver {
 		values.put("auth_player_name", context.account.name);
 		values.put("auth_uuid", context.account.uuidCompact());
 		// Offline launch: the server rejects these, singleplayer ignores them entirely.
-		values.put("auth_access_token", "shrd-offline");
-		values.put("auth_session", "shrd-offline");
-		values.put("auth_xuid", "0");
+		// A signed-in account hands the game its real token, which is what an online server checks.
+		values.put("auth_access_token", context.account.token());
+		values.put("auth_session", context.account.token());
+		values.put("auth_xuid", context.account.online() && context.account.xuid != null && !context.account.xuid.isBlank()
+			? context.account.xuid : "0");
 		values.put("clientid", "shrd-launcher");
 		values.put("user_type", "msa");
 		values.put("user_properties", "{}");

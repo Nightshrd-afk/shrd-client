@@ -33,6 +33,14 @@ public final class LauncherConfig {
 	public String updateManifestUrl = Updater.DEFAULT_MANIFEST_URL;
 	/** Check once when the launcher starts, as well as when the button is pressed. */
 	public boolean checkForUpdatesOnStart = true;
+	/** Image drawn behind the Home hero. Blank means the built-in purple gradient. */
+	public String backgroundImage = "";
+	/**
+	 * Azure application (client) id used for Microsoft sign-in. A public client with
+	 * {@code XboxLive.signin} delegated permission and device-code flow enabled. Blank means the
+	 * Sign in button explains how to make one instead of failing.
+	 */
+	public String microsoftClientId = "";
 
 	public static LauncherConfig load() {
 		File file = ShrdPaths.configFile();
@@ -87,6 +95,14 @@ public final class LauncherConfig {
 		if (updateManifestUrl == null) {
 			// Blank is a real choice — it disables the check — so only null gets the default.
 			updateManifestUrl = Updater.DEFAULT_MANIFEST_URL;
+		}
+
+		if (backgroundImage == null) {
+			backgroundImage = "";
+		}
+
+		if (microsoftClientId == null) {
+			microsoftClientId = "";
 		}
 	}
 

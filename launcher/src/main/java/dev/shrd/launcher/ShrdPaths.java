@@ -66,12 +66,22 @@ public final class ShrdPaths {
 		return home.resolve("updates");
 	}
 
+	/** Player skins, cached by name so the hero does not fetch one on every repaint. */
+	public static Path skins() {
+		return home.resolve("skins");
+	}
+
+	/** Background images the user picked, copied here so moving the original cannot lose them. */
+	public static Path backgrounds() {
+		return home.resolve("backgrounds");
+	}
+
 	public static File configFile() {
 		return home.resolve("shrd-launcher.json").toFile();
 	}
 
 	public static void ensureDirs() {
-		for (Path path : new Path[] { home, versions(), libraries(), assets(), assetIndexes(), assetObjects(), instances(), logs(), cache(), updates() }) {
+		for (Path path : new Path[] { home, versions(), libraries(), assets(), assetIndexes(), assetObjects(), instances(), logs(), cache(), updates(), skins(), backgrounds() }) {
 			try {
 				Files.createDirectories(path);
 			} catch (Exception e) {
