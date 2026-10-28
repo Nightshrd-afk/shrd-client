@@ -490,6 +490,33 @@ uploads were fine and every download worked; the check was wrong. It now reads t
 release reports, compares each installer's byte size, and probes that exact name — and it no longer
 pipes the final update check through `sed`, which had been hiding that check's exit status.
 
+### 4b.10 The real install, on this machine
+
+The **published** installer was downloaded from the release, compared with the build here
+(`cmp`: identical, 37,173,248 bytes) and installed for all users, which needs administrator rights:
+
+| Check | Result |
+|---|---|
+| installer exit code | `0` |
+| `C:\Program Files\Shrd Launcher\` | `Shrd Launcher.exe`, `app/shrd-launcher-1.0.0.jar`, `app/mods/shrd-client-1.0.0.jar`, `runtime/` |
+| Start Menu, all users | `…\Start Menu\Programs\Shrd Launcher\Shrd Launcher.lnk` |
+| what the shortcut points at | `C:\Program Files\Shrd Launcher\Shrd Launcher.exe`, working folder the install folder, icon from the exe (`,0`) |
+| Apps & features | `Shrd Launcher`, publisher `Shrd Client`, version `1.0.0`, location `C:\Program Files\Shrd Launcher\`, uninstall `MsiExec.exe /X{CB150244-…}` |
+| started from the shortcut | window opened, titled `Shrd Launcher`, responding (1180x740), the purple-on-black Settings page drawn |
+| `--version` from the installed copy | `SHRD-VERSION 1.0.0 installed=C:\Program Files\Shrd Launcher` |
+| startup update check, live manifest | log `update check: running 1.0.0, published 1.0.0` |
+
+That last row closes the gap 4b.8 left open: the check an installed copy runs by itself now has been
+seen going to the real release and coming back with a real answer.
+
+**What the install exposed: a clean machine has no Java for the game.** The launcher window opened on
+the Settings page with `No Java found — the game cannot start until one is set` — accurate, and the
+first thing a new user would hit. The launcher finds a JDK through its configured path, a
+`.toolchain` folder beside it, `JAVA_HOME` or `PATH`, and this machine has none of those outside the
+development tree; the `runtime/` the package carries is the launcher's own trimmed JRE, which is not
+what Minecraft runs on. So the package installs and runs exactly as declared, but playing needs a
+Java 25 the user supplies. Fetching a runtime automatically is the next thing this launcher needs.
+
 ## 5. Mock-up test harness in the repo
 
 - `tools/UiCheck.java` — colour assertions on a screenshot (exits non-zero on failure).
@@ -504,6 +531,8 @@ pipes the final update check through `sed`, which had been hiding that check's e
   registration, so an installer can be checked before anyone runs it.
 - `tools/update-server.java` — a throwaway static HTTP server, so the update path can be tested
   without publishing anything.
+- `tools/window-shot.ps1` — captures one native window by process id (`PrintWindow`, so an
+  overlapping window does not matter), which is how the installed launcher was photographed.
 - `src/main/java/dev/shrd/client/gametest/ShrdClientGameTest.java` — the automated UI test.
 
 ## 6. Known limitations / not verified here
@@ -534,19 +563,24 @@ pipes the final update check through `sed`, which had been hiding that check's e
 - **Four of the five launcher pages were verified as renders**, not as interactive sessions:
   nothing clicked the instance editor, the mod switches or the account list. Those handlers are the
   same ones the CLI verification drives for installs, but the button wiring itself is untested.
-- **The launcher's installer was not installed here.** The MSI and EXE build and their declarations
-  were checked (4b.7), but running `msiexec /i` needs administrator rights and the elevation prompt
-  was not approved, so the install, the Start Menu shortcut appearing for real, and the uninstall
-  were not executed on this machine. That is the one claim in this document that rests on the
-  package's own declarations rather than on a run.
+- **The uninstall was not run.** The install was, for real, into Program Files with the published
+  installer (4b.10): the files, the Start Menu shortcut, the Apps & features entry and launching it
+  from that shortcut all work. Removing it was left for the owner of the machine to choose; the
+  uninstall string Apps & features registers is `MsiExec.exe /X{CB150244-82B1-3C1B-B9C3-36CEDAE1B8CF}`.
+- **An installed copy on a machine with no Java 25 cannot start the game.** This is the first thing
+  the real install exposed (4b.10). `JavaRuntime` looks at the configured path, a `.toolchain` JDK
+  beside the launcher, `JAVA_HOME`, then `PATH`; a packaged install on a clean machine has none of
+  those, and the launcher has no "download a runtime" path. The `runtime/` folder in the package is
+  the launcher's own trimmed JRE, not a game runtime. The Settings page says so plainly ("No Java
+  found — the game cannot start until one is set"), but a new user has to supply Java themselves.
 - **Updating an install inside Program Files was not run.** The swap itself is verified (4b.8), but
   in Program Files the copy step needs administrator rights, so the swap script re-launches itself
   with a UAC prompt. That re-launch is code, not something this session could click through; an
   unelevated portable copy updates without any prompt (which is what was run).
-- **The startup check was not watched against the live URL in the GUI.** The live release was
-  verified through the CLI (`--check-update`, `--update`, 4b.9) and the GUI's update offer against a
-  local manifest (4b.8); nobody opened the window and watched it find 1.0.0 on startup, because the
-  installed copy is 1.0.0 and there is nothing newer to find yet.
+- **The GUI's update offer was never seen for a genuinely newer version.** The installed copy's
+  startup check does reach the live manifest — its log shows `update check: running 1.0.0, published
+  1.0.0` (4b.10) — but because it is the newest release it correctly offered nothing. The offer
+  dialog itself was only exercised against a local manifest (4b.8).
 - **Re-publishing a version does not move its tag.** `publish-release.sh` updates an existing
   release in place and leaves its tag alone, so a fix published as the same version keeps the tag at
   the commit that first created it. Bump `version` in `gradle.properties` for each new release.

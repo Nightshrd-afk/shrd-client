@@ -82,15 +82,21 @@ bash launcher/build-installer.sh          # all of it; pass portable, msi or exe
 **The installer** puts Shrd Launcher in `C:\Program Files\Shrd Launcher`, adds a **Shrd Launcher**
 group to the Start Menu with a shortcut in it, and registers itself in **Apps & features**, so it
 uninstalls like anything else (`msiexec /x` works too). Installing asks for administrator rights —
-that is the cost of Program Files — and the package carries its own Java 25 runtime, so nothing else
-has to be on the machine. Prefer the `.exe` (one file, a wizard); the `.msi` is the same thing for
-silent installs and group policy (`msiexec /i "Shrd Launcher-1.0.0.msi" /qn`).
+that is the cost of Program Files — and the package carries its own Java 25 runtime, so the launcher
+itself runs with nothing else installed. Prefer the `.exe` (one file, a wizard); the `.msi` is the
+same thing for silent installs and group policy (`msiexec /i "Shrd Launcher-1.0.0.msi" /qn`).
+
+The **game** is a separate matter: Minecraft 26.2 runs on a Java 25 of its own, and the launcher
+does not download one. If the machine has none, Home says so (`No Java found`) and
+**Settings → Java** takes a path to one; the launcher looks in its own `javaPath`, a `.toolchain`
+folder beside it, `JAVA_HOME`, then `PATH`.
 
 **The zip** is that same app unpacked, for a machine where nobody has admin rights: unzip it
 anywhere you can write to, double-click `Shrd Launcher.exe`, and deleting the folder uninstalls it.
 
 Nothing in either download is machine-specific, so sharing it is just uploading the file (GitHub
-release, Drive, Discord): whoever receives it needs neither this project nor a JDK.
+release, Drive, Discord): whoever receives it needs neither this project nor a JDK to open the
+launcher — only a Java 25 somewhere for the game itself.
 
 Building the installers needs the [WiX Toolset](https://github.com/wixtoolset/wix3); the script
 downloads it into `.toolchain/wix-3.14.1` (41 MB, no admin needed) if it is not already there. The
