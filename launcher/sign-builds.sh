@@ -98,12 +98,19 @@ else
 		# The password only protects a key that never leaves this machine, and both live in
 		# .toolchain/, which git ignores.
 		head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n' >"$PASSWORD_FILE"
-	fi
+	fi		PASSWORD="$(cat "$PASSWORD_FILE")"
+		ALIAS="shrd"
 
-	PASSWORD="$(cat "$PASSWORD_FILE")"
-	ALIAS="shrd"
+		# This key pair is generated, disposable and only ever used from here, so a keystore that does
+		# not open with the password beside it (an interrupted run can leave the two out of step) is
+		# replaced rather than allowed to fail a release. A bought certificate is never treated this
+		# way — a wrong password there is a real problem and has to be reported.
+		if [ -f "$PFX" ] && ! "$KEYTOOL" -list -keystore "$(winpath "$PFX")" -storetype PKCS12 -storepass "$PASSWORD" >/dev/null 2>&1; then
+			echo "the stored signing certificate does not open with its password — generating a new one"
+			rm -f "$PFX" "$CER"
+		fi
 
-	if [ ! -f "$PFX" ]; then
+		if [ ! -f "$PFX" ]; then
 		echo "generating a self-signed code-signing certificate (once)"
 		"$KEYTOOL" -genkeypair \
 			-alias "$ALIAS" \
