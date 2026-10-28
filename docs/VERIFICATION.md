@@ -733,6 +733,35 @@ That last row is the point of the release existing: the 1.1.0 install from 4b.13
 1.2.0 through the manifest it already points at. Applying it was left to the app's own update prompt,
 because the swap writes into `Program Files` and raises a UAC prompt.
 
+### 4b.17 1.3.0 published, and the installed copy updated for real
+
+`bash launcher/publish-release.sh 1.3.0` ran end to end and exited 0:
+
+| Check | Result |
+|---|---|
+| manifest | `version=1.3.0`, `sha256=8ee17ea1…`, 35,328,736 bytes |
+| zip fetched back over HTTPS | SHA-256 identical to the local build, `Content-Length` 35,328,736 |
+| `Shrd.Launcher-1.3.0.exe` / `.msi` | uploaded, 37,292,032 / 36,675,348 bytes |
+| the built launcher's own check | `current=1.3.0 published=1.3.0` → `UP-TO-DATE` |
+| release | `v1.3.0`, not a draft, not a prerelease, `/releases/latest` redirects to it |
+
+The 1.1.0 install in `Program Files` was then updated *for real* — the step 4b.16 left to the app's
+own prompt. `--update --apply` downloaded and unpacked the release, then the swap script ran: it waits
+for `Shrd Launcher.exe` to close, mirrors the new files over the old folder (`robocopy /E /PURGE`) and
+starts the launcher again. In `Program Files` that mirror needs administrator rights, so it re-launches
+itself elevated. The mirror cannot replace a running exe, so with a 1.1.0 window still open it only
+half-completed; closing the window and running the mirror again finished it:
+
+```
+app/shrd-launcher-1.3.0.jar      the 1.1.0 jar and its .package marker gone (/PURGE)
+app/mods/shrd-client-1.3.0.jar   the 1.1.0 mod gone, mods/ itself kept
+SHRD-VERSION 1.3.0 installed=C:\Program Files\Shrd Launcher
+SHRD-UPDATE current=1.3.0 manifest=… → SHRD-UPDATE-UP-TO-DATE
+```
+
+That closes the loop on one machine: an install made by the 1.1.0 installer, pointing at the published
+manifest, ends up on 1.3.0 and then reports itself current.
+
 ## 5. Mock-up test harness in the repo
 
 - `tools/UiCheck.java` — colour assertions on a screenshot (exits non-zero on failure).
@@ -789,14 +818,15 @@ because the swap writes into `Program Files` and raises a UAC prompt.
   those, and the launcher has no "download a runtime" path. The `runtime/` folder in the package is
   the launcher's own trimmed JRE, not a game runtime. The Settings page says so plainly ("No Java
   found — the game cannot start until one is set"), but a new user has to supply Java themselves.
-- **Updating an install inside Program Files was not run.** The swap itself is verified (4b.8), but
-  in Program Files the copy step needs administrator rights, so the swap script re-launches itself
-  with a UAC prompt. That re-launch is code, not something this session could click through; an
-  unelevated portable copy updates without any prompt (which is what was run).
-- **The GUI's update offer was never seen for a genuinely newer version.** The installed copy's
-  startup check does reach the live manifest — its log shows `update check: running 1.0.0, published
-  1.0.0` (4b.10) — but because it is the newest release it correctly offered nothing. The offer
-  dialog itself was only exercised against a local manifest (4b.8).
+- **The update prompt's own buttons were not clicked.** Updating an install inside `Program Files`
+  is now verified for real (4b.17) — download, elevated mirror, restart, then `UP-TO-DATE` — but the
+  *offer* was applied through the launcher's CLI, so the dialog's "Update now" button and the UAC
+  prompt behind it were never clicked by hand. A launcher window left open also blocks the mirror;
+  the app's own prompt waits for the window to close, the CLI path does not.
+- **The GUI's update offer has been seen against a real newer release, but not clicked.** The
+  installed 1.1.0 copy's startup check logged `update check: running 1.1.0, published 1.3.0` and put
+  up "Shrd Launcher 1.3.0 is available (you have 1.1.0)"; the update was then applied from the CLI
+  (4b.17). Only the local-manifest run (4b.8) went through the dialog's own buttons.
 - **Re-publishing a version does not move its tag.** `publish-release.sh` updates an existing
   release in place and leaves its tag alone, so a fix published as the same version keeps the tag at
   the commit that first created it. Bump `version` in `gradle.properties` for each new release.
