@@ -1098,3 +1098,43 @@ Limits of this round:
   (above), and the row's button only wraps that call, but no click was dispatched in the window.
 - **No download-progress bar.** A large mod shows "Installing…" on its button until the file lands.
 - **The page was checked at 1280×860 only**, not at the window's 1000×640 minimum.
+
+### 4b.22 1.6.0 is published
+
+`bash launcher/publish-release.sh 1.6.0` exited 0. It committed nothing itself — the working tree
+was committed first as `22e6ae8`, which is what the tag points at — then built, pushed, tagged,
+uploaded and checked the result:
+
+```
+SHRD-VERSION 1.6.0
+manifest agrees with the zip: fbb23ca58ee73858fe8abb7b91f49511e6542bd5822595fbe6bed9792ca64fce (35962696 bytes)
+To https://github.com/Nightshrd-afk/shrd-client.git
+   8cb73a5..22e6ae8  main -> main
+ * [new tag]         v1.6.0 -> v1.6.0
+published https://github.com/Nightshrd-afk/shrd-client/releases/tag/v1.6.0
+
+serving: version=1.6.0 file=shrd-launcher-1.6.0-windows-x64.zip sha256=fbb23ca58…
+  published sha256 fbb23ca58ee73858fe8abb7b91f49511e6542bd5822595fbe6bed9792ca64fce
+  local     sha256 fbb23ca58ee73858fe8abb7b91f49511e6542bd5822595fbe6bed9792ca64fce
+Shrd.Launcher-1.6.0.exe  HTTP 200  37924640 bytes
+Shrd.Launcher-1.6.0.msi  HTTP 200  37310464 bytes
+SHRD-UPDATE current=1.6.0 manifest=…/releases/latest/download/shrd-launcher-latest.json
+SHRD-UPDATE-UP-TO-DATE
+```
+
+The release carries four assets — the zip, the manifest, the `.exe` and the `.msi` — and
+`/releases/latest` redirects to `v1.6.0`, so the URL baked into `Updater.DEFAULT_MANIFEST_URL` is
+already serving 1.6.0.
+
+**The copy installed on this machine sees it.** Its own CLI, run from `C:\Program Files\Shrd
+Launcher`, against the live manifest:
+
+```
+INFO update check: running 1.5.0, published 1.6.0
+SHRD-UPDATE-AVAILABLE version=1.6.0 url=…/shrd-launcher-1.6.0-windows-x64.zip
+  sha256=fbb23ca58ee73858fe8abb7b91f49511e6542bd5822595fbe6bed9792ca64fce bytes=35962696
+```
+
+So the installed 1.5.0 will offer 1.6.0 on its next launch. **It was not installed over Program
+Files this round** — that still needs the elevation prompt, so the machine is running 1.5.0 until
+the offer is accepted.
