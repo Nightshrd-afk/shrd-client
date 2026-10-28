@@ -595,6 +595,37 @@ router: UPnP off, or an ISP using CGNAT, and the page says so and points at a tu
 `online-mode=false` is deliberate for an offline account and is what the server's own red warning in
 the log is about — with a Microsoft account it is `true`.
 
+### 4b.13 1.1.0 released, and installed from the release
+
+`bash launcher/publish-release.sh` published **1.1.0** and verified it the same way as 1.0.0, exit 0:
+
+| Check | Result |
+|---|---|
+| manifest | `version=1.1.0`, `sha256=a1ba3fbf…`, 35,266,011 bytes |
+| zip fetched back over HTTPS | SHA-256 identical to the build |
+| `Shrd.Launcher-1.1.0.exe` | HTTP 200, 37,230,592 bytes |
+| `Shrd.Launcher-1.1.0.msi` | HTTP 200, 36,613,908 bytes |
+| the built launcher's own check | `SHRD-UPDATE current=1.1.0 … UP-TO-DATE` |
+
+The installed copy from 4b.10 was **gone** by the time this released — folder, Start Menu entry and
+registry entry all absent, so there was nothing to update and 1.1.0 was installed fresh from the
+release download instead (same bytes as the local build, `cmp` identical):
+
+| Check | Result |
+|---|---|
+| install | exit 0 (`/quiet`, elevated) |
+| `C:\Program Files\Shrd Launcher\` | exe, `app/shrd-launcher-1.1.0.jar`, `app/mods`, `runtime/` |
+| Start Menu | `Shrd Launcher.lnk` (all users) |
+| Apps & features | `Shrd Launcher 1.1.0`, `{4233FFED-…}` (the product code moves with the version; the upgrade uuid does not) |
+| `--version` | `SHRD-VERSION 1.1.0 installed=C:\Program Files\Shrd Launcher` |
+| `--check-update` against the live manifest | `current=1.1.0 published=1.1.0` → `UP-TO-DATE` |
+| launched from the shortcut | window opens, title bar `v1.1.0`, rail shows **Servers**, Settings shows Appearance |
+
+So the 1.0.0 → 1.1.0 upgrade path through the updater was not exercised on this machine (the old
+copy no longer existed); what was exercised is the release itself, and the earlier 0.9.0 → 1.0.0 run
+that proved the same mechanism. A 1.0.0 install would have found 1.1.0 — that is what the manifest
+it already points at now serves.
+
 ## 5. Mock-up test harness in the repo
 
 - `tools/UiCheck.java` — colour assertions on a screenshot (exits non-zero on failure).
