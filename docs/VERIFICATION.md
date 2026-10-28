@@ -762,6 +762,94 @@ SHRD-UPDATE current=1.3.0 manifest=… → SHRD-UPDATE-UP-TO-DATE
 That closes the loop on one machine: an install made by the 1.1.0 installer, pointing at the published
 manifest, ends up on 1.3.0 and then reports itself current.
 
+### 4b.18 The Home page rebuilt, signed downloads, and 1.4.0
+
+The Home page now follows the layout of the client it launches. Rendered with
+`--shot home,build/shot/installed-1.4.0.png` from the **installed** 1.4.0 build, not the development
+copy:
+
+| Piece | What was drawn |
+|---|---|
+| banner | 320px tall, accent-tinted gradient, the client's plus-sign texture at 5% over it |
+| name plate | `Player` / `Go to profile →` above the figure, opens the Instances page |
+| client card | `Shrd Client`, `v1.4.0 · in every profile`, `MANAGE MODS →`, opens the Mods page |
+| account chip | bottom centre, face + name + kind, same switch-account menu as before |
+| update pill | top right, shown only when an update is offerable |
+| header row | `Last played profiles` with the Java / Bedrock selector; Bedrock is greyed on purpose |
+| profile card | 58px tile, 16px name, loader + last-played line, 112x40 Play, 40x40 gear |
+| bottom bar | wide `Manage all profiles` and `Add mods` |
+| every page | the same plus-sign texture, painted once by the page area in `LauncherFrame` |
+
+Each interactive piece was checked by rendering the page, and the pages that share the backdrop were
+re-rendered to confirm the texture did not wash out their text: `--shot customise` (wheel, presets, hex
+field all legible over the pattern) and `--shot settings` (cards unchanged).
+
+One thing this turned up, unrelated to the layout: the status strip read `unreadable`, because
+`shrd-launcher.json` pointed `javaPath` at a Dawn client jar left over from an earlier experiment.
+Clearing that path let the launcher fall back to its bundled runtime, and the strip now reads
+`Java 25.0.5`.
+
+**Signing.** `launcher/sign-builds.sh` is called by `build-installer.sh`, so a release is signed without
+a manual step. Getting it to run unattended on Windows needed three discoveries, each of which had
+looked like a mystery hang:
+
+1. `Import-PfxCertificate` can leave the private key flagged as UI-protected, so every
+   `Set-AuthenticodeSignature` opens a Windows Security dialog — invisible from a build script, which
+   then waits forever. Loading the `.pfx` with `EphemeralKeySet` signs from memory in about a second
+   and touches no store.
+2. Writing a certificate into the user's Root store opens a confirmation dialog, whether through
+   `X509Store.Add` or `certutil -addstore -user Root`. Both blocked for minutes; there is no
+   unattended way past it, which is why the build does not try.
+3. `jpackage` marks its exe read-only, and a signature cannot be appended to a read-only file.
+
+It also has to convert every path it hands to Java or PowerShell: `keytool` and `jarsigner` are native
+Windows programs and cannot open an MSYS path like `/c/Users/…`.
+
+What the result actually is:
+
+```
+$ bash launcher/sign-builds.sh "dist/Shrd Launcher-1.4.0.exe" …
+SIGN-CERT 311FAB0D5605C0D7C789C025CBD066BA0125CDC3 CN=Shrd Client, O=Shrd Client
+VERIFY … signature valid, certificate not trusted by Windows: CN=Shrd Client, O=Shrd Client
+VERIFY dist/Shrd Launcher/Shrd Launcher.exe  (the portable copy inside the zip) likewise
+SIGN-OK 3 file(s) signed
+SIGNED launcher/build/libs/shrd-launcher-1.4.0.jar  /  VERIFY … jar verified
+SIGNED build/libs/shrd-client-1.4.0.jar             /  VERIFY … jar verified
+```
+
+The `.exe` downloaded back from the release has the same SHA-256 as the local build
+(`a683e7d8…`) and carries an Authenticode signature naming `CN=Shrd Client`; `Get-AuthenticodeSignature`
+reports `UnknownError` for it, which means the signature matches the file but Windows cannot chain the
+self-signed certificate to a trusted root. **That is the honest limit of this setup:** a signature on
+the file, not yet a publisher SmartScreen will trust on a stranger's machine. Only a certificate from a
+real CA does that — pointing `SHRD_PFX` / `SHRD_PFX_PASSWORD` at one is the whole switch.
+
+**1.4.0 is published, and the installed copy is on it.** `bash launcher/publish-release.sh 1.4.0`
+exited 0:
+
+| Check | Result |
+|---|---|
+| manifest | `version=1.4.0`, `sha256=fa1981e7…`, 35,385,406 bytes |
+| zip fetched back over HTTPS | SHA-256 identical to the local build |
+| `Shrd.Launcher-1.4.0.exe` / `.msi` | HTTP 200, 37,347,096 / 36,732,928 bytes |
+| the built launcher's own check | `current=1.4.0 published=1.4.0` → `UP-TO-DATE` |
+| the installed 1.3.0 | `SHRD-UPDATE-AVAILABLE version=1.4.0`, with the published URL and hash |
+
+Applying it needed the same one elevated step as 4b.17, because the install lives in `Program Files`.
+The running 1.3.0 windows were closed first (a mirror cannot replace a running exe), the downloaded
+build was mirrored over the install, and the result reads:
+
+```
+app/                             shrd-launcher-1.4.0.jar, mods/shrd-client-1.4.0.jar
+SHRD-VERSION 1.4.0 installed=C:\Program Files\Shrd Launcher
+SHRD-UPDATE current=1.4.0 published=1.4.0  → SHRD-UPDATE-UP-TO-DATE
+```
+
+**Not verified:** the Java/Bedrock selector and the name plate were rendered and inspected, but no
+human clicked them in a live window; and no machine without this repository's key has been shown the
+`UnknownError` signature UI. Signing with a purchased certificate is untested for the obvious reason
+that buying one needs the identity checks only the certificate authority can run.
+
 ## 5. Mock-up test harness in the repo
 
 - `tools/UiCheck.java` — colour assertions on a screenshot (exits non-zero on failure).
@@ -776,6 +864,9 @@ manifest, ends up on 1.3.0 and then reports itself current.
   registration, so an installer can be checked before anyone runs it.
 - `tools/update-server.java` — a throwaway static HTTP server, so the update path can be tested
   without publishing anything.
+- `launcher/sign-builds.sh` and `tools/sign-windows.ps1` — code-sign the installers and the jars;
+  with a CA certificate via `SHRD_PFX`, otherwise with a self-signed one kept in `.toolchain/signing`
+  (the public half is written beside it as `shrd-codesign.cer`).
 - `tools/window-shot.ps1` — captures one native window by process id (`PrintWindow`, so an
   overlapping window does not matter), which is how the installed launcher was photographed.
 - `src/main/java/dev/shrd/client/gametest/ShrdClientGameTest.java` — the automated UI test.

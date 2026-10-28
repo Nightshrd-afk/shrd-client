@@ -191,12 +191,24 @@ and re-publishing a version that already has a tag updates the release in place 
 tag. So download URLs use the dotted name, and a real fix ships as a new version rather than a
 re-upload of the old one.
 
-The current release: https://github.com/Nightshrd-afk/shrd-client/releases/tag/v1.1.0
+The current release: https://github.com/Nightshrd-afk/shrd-client/releases/tag/v1.4.0
 
-### What it does- **Home** — a banner with your own skin standing in it as a turned, lit 3D figure (fetched by name,
-  or from the signed-in profile), the account chip, and a Play button on every profile that turns
-  into Stop. The banner background is yours: **Customise** takes any PNG or JPG and copies it into
-  the launcher's folder. Without one it is the theme's own gradient.
+Signing is part of the build, not a step to remember. [launcher/sign-builds.sh](launcher/sign-builds.sh)
+signs the `.exe`, the `.msi` and both jars, and `build-installer.sh` calls it. With nothing configured
+it generates a self-signed code-signing certificate once in `.toolchain/signing` and signs from memory
+— no administrator rights, nothing written to the Windows certificate store. To sign with a real
+certificate, point `SHRD_PFX` and `SHRD_PFX_PASSWORD` at it and run the same command: the switch is
+just the certificate. A self-signed build carries a valid Authenticode signature that Windows reports
+as untrusted, which is exactly what it is — SmartScreen only stops warning once the certificate comes
+from a CA.
+
+### What it does
+
+- **Home** — a banner with your own skin standing in it as a turned, lit 3D figure (fetched by name,
+  or from the signed-in profile), with the name plate above it, a card for the bundled client, the
+  account chip along the bottom, and a Play button on every profile that turns into Stop. The banner
+  background is yours: **Customise** takes any PNG or JPG and copies it into the launcher's folder.
+  Without one it is the theme's own gradient, tinted by the accent.
 - **Accounts** — offline names, or **Microsoft sign-in** for servers that verify you, in its own
   window that ends by showing the Java Edition account it signed in.
 - **Instances** — create, edit and delete instances. Each one gets its own folder, mods, worlds and
