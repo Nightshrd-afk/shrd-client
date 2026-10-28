@@ -452,6 +452,44 @@ The copy used for the swap was a packaged app image in a folder with a space in 
 layout a Program Files install has — so both the quoting in the swap script and its "is this an
 installed copy?" detection were exercised.
 
+### 4b.9 The published release
+
+Shrd Launcher 1.0.0 is published, not just buildable:
+
+**https://github.com/Nightshrd-afk/shrd-client/releases/tag/v1.0.0**
+
+`bash launcher/publish-release.sh` did it in one run — build all four artifacts, tag `v1.0.0`, push,
+create the release, upload, then verify — and exited **0**. What it checked, and what came back:
+
+| Check | Result |
+|---|---|
+| the built launcher reports the release version | `SHRD-VERSION 1.0.0` |
+| manifest agrees with the built zip before upload | `7f5b43b4…` / 35,210,168 bytes |
+| the manifest at `…/releases/latest/download/shrd-launcher-latest.json` | serves `version=1.0.0`, same `sha256` |
+| the zip fetched back from `…/releases/latest/download/…` | SHA-256 identical to the local build |
+| `Shrd.Launcher-1.0.0.exe` | HTTP 200, 37,173,248 bytes |
+| `Shrd.Launcher-1.0.0.msi` | HTTP 200, 36,556,564 bytes |
+| the launcher's own `--check-update` against the live URL | `SHRD-UPDATE current=1.0.0 …` then `SHRD-UPDATE-UP-TO-DATE` |
+
+Then the update path was exercised the way a user's installed copy would hit it. A **0.9.0** build
+(`SHRD_VERSION=0.9.0 SHRD_OUT=dist-test`) was pointed at the default manifest — no `--manifest`
+override — and run through the packaged exe:
+
+| Step | Result |
+|---|---|
+| `--version` on the old copy | `SHRD-VERSION 0.9.0` |
+| `--check-update` | `SHRD-UPDATE-AVAILABLE version=1.0.0 url=…/shrd-launcher-1.0.0-windows-x64.zip sha256=7f5b43b4… bytes=35210168` |
+| `--update` | `SHRD-UPDATE-PREPARED`, 35,210,168 bytes downloaded, SHA-256 matched, unpacked |
+| SHA-256 of the downloaded zip | `7f5b43b4…` — the manifest's own value |
+| the unpacked copy runs | `SHRD-VERSION 1.0.0` from `updates/1.0.0/unpacked/Shrd Launcher` |
+
+**A bug this caught, now fixed.** The first publish run uploaded everything correctly and then failed
+its own verification: it probed `…/download/Shrd%20Launcher-1.0.0.exe` and got a 404. GitHub rewrites
+spaces in asset names to dots, so the installer is published as `Shrd.Launcher-1.0.0.exe`. The
+uploads were fine and every download worked; the check was wrong. It now reads the asset list the
+release reports, compares each installer's byte size, and probes that exact name — and it no longer
+pipes the final update check through `sed`, which had been hiding that check's exit status.
+
 ## 5. Mock-up test harness in the repo
 
 - `tools/UiCheck.java` — colour assertions on a screenshot (exits non-zero on failure).
@@ -505,10 +543,13 @@ installed copy?" detection were exercised.
   in Program Files the copy step needs administrator rights, so the swap script re-launches itself
   with a UAC prompt. That re-launch is code, not something this session could click through; an
   unelevated portable copy updates without any prompt (which is what was run).
-- **The default update manifest does not exist yet.** It points at
-  `…/releases/latest/download/shrd-launcher-latest.json`; until a release publishes that file the
-  startup check fails quietly (one line in the log, no dialog), which is deliberate — an offline or
-  not-yet-published launcher should still open.
+- **The startup check was not watched against the live URL in the GUI.** The live release was
+  verified through the CLI (`--check-update`, `--update`, 4b.9) and the GUI's update offer against a
+  local manifest (4b.8); nobody opened the window and watched it find 1.0.0 on startup, because the
+  installed copy is 1.0.0 and there is nothing newer to find yet.
+- **Re-publishing a version does not move its tag.** `publish-release.sh` updates an existing
+  release in place and leaves its tag alone, so a fix published as the same version keeps the tag at
+  the commit that first created it. Bump `version` in `gradle.properties` for each new release.
 - **No code signing.** Both installers are unsigned, so SmartScreen warns on first run until enough
   people have run that file. Signing needs a certificate, which is a purchase, not a build step.
 - **The icons were not inspected in the real Windows taskbar or in Apps & features.** The window

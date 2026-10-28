@@ -64,6 +64,10 @@ Updates — the version, the manifest it checks, and one button to fetch a new b
 
 ### Downloading it
 
+**[Download Shrd Launcher 1.0.0](https://github.com/Nightshrd-afk/shrd-client/releases/latest)** —
+`Shrd Launcher-1.0.0.exe` to install it, or the portable zip to run it without installing. The
+release also carries the same installer as an `.msi` and the update manifest the launcher reads.
+
 `bash launcher/build-installer.sh` builds the whole release — a real Windows installer, the same
 app as a portable zip, and the manifest the launcher updates itself from:
 
@@ -174,6 +178,14 @@ Assets are uploaded under their own names, so `releases/latest/download/<name>` 
 baked URL uses — always resolves to the newest release, and the launcher needs no API token to read
 it. Bumping `version` in `gradle.properties` is the whole release process: the tag, the artifacts
 and the version the app reports all come from it.
+
+Two details the script handles for you, because both cost a failed release to learn: GitHub turns
+the spaces in `Shrd Launcher-1.0.0.exe` into dots (`Shrd.Launcher-1.0.0.exe`) in the download URL,
+and re-publishing a version that already has a tag updates the release in place without moving the
+tag. So download URLs use the dotted name, and a real fix ships as a new version rather than a
+re-upload of the old one.
+
+The current release: https://github.com/Nightshrd-afk/shrd-client/releases/tag/v1.0.0
 
 ### What it does
 
