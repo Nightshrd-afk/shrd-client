@@ -137,6 +137,16 @@ public final class Icons {
 		g.draw(tab);
 	}
 
+	/** A server rack: two stacked units with a status dot, for the Servers page. */
+	public static void server(Graphics2D g, int x, int y, int size, Color color) {
+		g.setColor(color);
+		g.setStroke(stroke(size));
+		g.draw(new RoundRectangle2D.Double(x + size * 0.08, y + size * 0.1, size * 0.84, size * 0.34, 3, 3));
+		g.draw(new RoundRectangle2D.Double(x + size * 0.08, y + size * 0.56, size * 0.84, size * 0.34, 3, 3));
+		g.fill(new java.awt.geom.Ellipse2D.Double(x + size * 0.18, y + size * 0.22, size * 0.1, size * 0.1));
+		g.fill(new java.awt.geom.Ellipse2D.Double(x + size * 0.18, y + size * 0.68, size * 0.1, size * 0.1));
+	}
+
 	private static BasicStroke stroke(int size) {
 		return new BasicStroke(Math.max(1.3f, size * 0.09f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
 	}

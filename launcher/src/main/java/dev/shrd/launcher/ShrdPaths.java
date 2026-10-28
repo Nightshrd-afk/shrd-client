@@ -76,12 +76,17 @@ public final class ShrdPaths {
 		return home.resolve("backgrounds");
 	}
 
+	/** Servers the launcher runs on this machine, one folder each, worlds included. */
+	public static Path servers() {
+		return home.resolve("servers");
+	}
+
 	public static File configFile() {
 		return home.resolve("shrd-launcher.json").toFile();
 	}
 
 	public static void ensureDirs() {
-		for (Path path : new Path[] { home, versions(), libraries(), assets(), assetIndexes(), assetObjects(), instances(), logs(), cache(), updates(), skins(), backgrounds() }) {
+		for (Path path : new Path[] { home, versions(), libraries(), assets(), assetIndexes(), assetObjects(), instances(), logs(), cache(), updates(), skins(), backgrounds(), servers() }) {
 			try {
 				Files.createDirectories(path);
 			} catch (Exception e) {

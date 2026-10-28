@@ -14,7 +14,6 @@ import dev.shrd.launcher.update.Updater;
 
 import java.nio.file.Path;
 import java.util.List;
-
 /**
  * The launcher driven from a terminal. The GUI uses exactly the same {@link LaunchService}, so
  * {@code --launch} is not a separate implementation to keep in step: it is the same launch, with
@@ -251,5 +250,48 @@ public final class Cli {
 				System.out.println("SHRD-NOTE " + message);
 			}
 		};
+	}
+
+	/**
+	 * Starts the local server, waits, then stops it — the same {@link ServerManager} the Servers page
+	 * drives, so a headless check exercises the real path rather than a copy of it.
+	 */
+	public static int host(LauncherConfig config, String instanceName, long seconds) {
+		Instance instance = instanceName == null ? config.active() : config.findInstance(instanceName);
+
+		if (instance == null) {
+			instance = config.active();
+		}
+
+		ServerManager server = new ServerManager();
+		server.setListener(line -> System.out.println("  " + line));
+
+		try {
+			server.start(instance, config.activeAccount().online(), config.javaPath);
+			long deadline = System.currentTimeMillis() + 240_000L;
+
+			while (server.state() == ServerManager.State.STARTING && System.currentTimeMillis() < deadline) {
+				Thread.sleep(500L);
+			}
+
+			System.out.println("SHRD-SERVER state=" + server.state()
+				+ " address=" + server.address()
+				+ " lan=" + server.lanAddress()
+				+ " folder=" + server.directory(instance));
+
+			if (server.state() != ServerManager.State.RUNNING) {
+				server.stop(30_000L);
+				return 1;
+			}
+
+			Thread.sleep(Math.max(0, seconds) * 1000L);
+			server.stop(90_000L);
+			System.out.println("SHRD-SERVER-STOPPED");
+			return 0;
+		} catch (Exception e) {
+			System.err.println("could not host: " + Http.describe(e));
+			server.stop(30_000L);
+			return 1;
+		}
 	}
 }

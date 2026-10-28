@@ -557,6 +557,28 @@ an Azure client id and a Microsoft account with Minecraft on it, and neither exi
 Xbox Live → XSTS → Minecraft → profile steps are code that has never carried a real token, and the
 `--access-token` a signed-in account would pass to the game has never been accepted by a server.
 
+### 4b.12 The local server, started and stopped for real
+
+`--host Default --wait 45` drives the same `ServerManager` the Servers page uses, headless:
+
+| Step | Result |
+|---|---|
+| server jar | downloaded from Mojang's version JSON for 26.2 (60,894,273 bytes), SHA-1 checked |
+| config | `eula.txt` written with the EULA line, `server.properties` with port 25565 and `online-mode=false` (the active account is offline) |
+| world | generated on the first start |
+| listening | `Starting Minecraft server on *:25565` |
+| ready | `Done (4.077s)! For help, type "help"`, and the launcher printed `SHRD-SERVER state=RUNNING address=localhost:25565 lan=192.168.1.201:25565` |
+| stop | `stop` written to the server's console: players, worlds and all three dimensions saved, `Server stopped`, `HOST-EXIT=0` |
+| afterwards | port 25565 closed — nothing left running |
+
+The page renders with the version, both addresses, the account mode, the folder, Start and the
+console (`docs/screenshots/launcher-servers.png`).
+
+Not verified: **no second player joined.** The server accepted its own startup and shutdown, but
+nobody connected from the game, so the LAN address, the tunnel advice and a real join are untested
+end to end. `online-mode=false` is deliberate for an offline account and is what the server's own
+red warning in the log is about.
+
 ## 5. Mock-up test harness in the repo
 
 - `tools/UiCheck.java` — colour assertions on a screenshot (exits non-zero on failure).

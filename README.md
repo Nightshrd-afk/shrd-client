@@ -206,6 +206,9 @@ The current release: https://github.com/Nightshrd-afk/shrd-client/releases/tag/v
 - **Mods** — the instance's `mods` folder as a list: enable or disable a mod (a switch, which is
   Fabric's `.disabled` convention), delete it, install **Shrd Client** from this project's build
   output, or fetch **Fabric API** for the instance's Minecraft version from Modrinth.
+- **Servers** — a free Minecraft server on this PC: it downloads Mojang's server jar for the
+  instance's version, writes the config, starts and stops it, and shows the server's console. The
+  address it prints is what you and your friends join.
 - **Console** — the launcher's own steps and the game's output, live, colour-coded, with the game's
   log file one press away.
 - **Settings** — Java detection (the bundled `.toolchain` JDK, then `JAVA_HOME`, then `PATH`),
@@ -244,6 +247,28 @@ It also takes flags, which is how the launcher's own verification drives it:
 --update [--apply]             download an update; --apply swaps it in and restarts
 --manifest <url>               use this manifest for the check/update instead of the saved one
 ```
+
+### Free server hosting
+
+**Servers → Start server** runs a real Minecraft server for the active instance, for free, with no
+account and no queue. The jar comes from Mojang's own version manifest for that exact version, so
+the client and the server can never disagree; the world, `server.properties` and logs live under
+`~/.shrd-launcher/servers/<instance>` so they can be backed up or moved.
+
+Two things it is honest about:
+
+- **It runs on this PC.** The server lives as long as the machine and the launcher do. That is the
+trade for not paying anyone: Aternos, Minehut and Falixnodes host for free, but they sleep when
+empty, queue you at busy times, and exist only inside their own website — none of them offers an API
+a launcher could create a server with, so the launcher cannot drive them.
+- **`online-mode` follows the account you picked.** Signed in with Microsoft → the server verifies
+players. An offline account → the server runs `online-mode=false` (the console says so, in red), and
+anyone who knows the address can join under any name. That is fine for friends on your own network,
+and it is why sign-in matters if you open it up.
+
+Friends on the same network use the address shown as *Join from your network*. From outside, the
+cheapest free route is a tunnel such as [playit.gg](https://playit.gg/) — no port forwarding, and it
+keeps working as long as this PC is on.
 
 ### Microsoft sign-in, and what it still needs
 

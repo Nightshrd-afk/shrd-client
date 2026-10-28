@@ -76,6 +76,10 @@ public final class ShrdLauncher {
 			System.exit(Cli.launch(config, instance, parseLong(options.get("wait"), 0)));
 		}
 
+		if (options.containsKey("host")) {
+			System.exit(Cli.host(config, instance, parseLong(options.get("wait"), 60)));
+		}
+
 		if (options.containsKey("shot")) {
 			String[] parts = options.get("shot").split(",");
 			String page = parts.length > 0 && !parts[0].isBlank() ? parts[0] : "home";
@@ -135,7 +139,7 @@ public final class ShrdLauncher {
 					String page = index + 1 < args.length && !args[index + 1].startsWith("-") ? args[++index] : "home";
 					options.put("shot", page);
 				}
-				case "launch", "prepare", "install-mods" -> {
+				case "launch", "prepare", "install-mods", "host" -> {
 					options.put(name, "yes");
 
 					if (index + 1 < args.length && !args[index + 1].startsWith("-")) {
@@ -171,8 +175,10 @@ public final class ShrdLauncher {
 			  --install-mods [instance]      copy the built Shrd Client jar + Fabric API into an instance
 			  --prepare [instance]           resolve and download everything, without launching
 			  --launch [instance]            start the game
-			  --wait <seconds>               with --launch: wait this long for the game to exit
-			  --shot <page>[,<file.png>]     render a page (home|instances|mods|console|settings) to a PNG
+			  --host [instance]              run the local server for this instance
+			  --wait <seconds>               with --launch: wait this long for the game to exit,
+			                                 with --host: how long to keep the server up
+			  --shot <page>[,<file.png>]     render a page (home|instances|mods|servers|console|settings) to a PNG
 			  --width <px> --height <px>     size used by --shot
 			""");
 	}

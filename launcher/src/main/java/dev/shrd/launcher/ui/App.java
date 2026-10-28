@@ -5,6 +5,7 @@ import dev.shrd.launcher.Instance;
 import dev.shrd.launcher.LaunchService;
 import dev.shrd.launcher.LauncherConfig;
 import dev.shrd.launcher.Log;
+import dev.shrd.launcher.ServerManager;
 import dev.shrd.launcher.ShrdPaths;
 import dev.shrd.launcher.launch.JavaRuntime;
 import dev.shrd.launcher.update.UpdateService;
@@ -33,6 +34,8 @@ public final class App {
 
 	public final LauncherConfig config;
 	public final LaunchService service = new LaunchService();
+	/** The server this launcher runs on this machine, if the user started one. */
+	public final ServerManager server = new ServerManager();
 	/** Shared by the pages that show an update: Home's alert row and the Settings card. */
 	public final UpdateService updates = new UpdateService();
 	private String stage = "idle";

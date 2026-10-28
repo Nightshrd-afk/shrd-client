@@ -7,6 +7,7 @@ import dev.shrd.launcher.ui.pages.ConsolePage;
 import dev.shrd.launcher.ui.pages.HomePage;
 import dev.shrd.launcher.ui.pages.InstancesPage;
 import dev.shrd.launcher.ui.pages.ModsPage;
+import dev.shrd.launcher.ui.pages.ServersPage;
 import dev.shrd.launcher.ui.pages.SettingsPage;
 
 import javax.swing.JComponent;
@@ -35,7 +36,7 @@ import java.util.Map;
  */
 public final class LauncherFrame extends JFrame {
 
-	public static final String[] PAGE_IDS = { "home", "instances", "mods", "console", "settings" };
+	public static final String[] PAGE_IDS = { "home", "instances", "mods", "servers", "console", "settings" };
 
 	private final App app;
 	private final CardLayout cards = new CardLayout();
@@ -186,6 +187,7 @@ public final class LauncherFrame extends JFrame {
 		rail.add(railItem("home", "Home", Icons::home, () -> showPage("home")));
 		rail.add(railItem("instances", "Instances", Icons::instances, () -> showPage("instances")));
 		rail.add(railItem("mods", "Mods", Icons::mods, () -> showPage("mods")));
+		rail.add(railItem("servers", "Servers", Icons::server, () -> showPage("servers")));
 		rail.add(railItem("console", "Console", Icons::terminal, () -> showPage("console")));
 		rail.add(railItem("settings", "Settings", Icons::gear, () -> showPage("settings")));
 		rail.add(javax.swing.Box.createVerticalGlue());
@@ -221,6 +223,7 @@ public final class LauncherFrame extends JFrame {
 		pages.put("home", new HomePage(app));
 		pages.put("instances", new InstancesPage(app));
 		pages.put("mods", new ModsPage(app));
+		pages.put("servers", new ServersPage(app));
 		pages.put("console", new ConsolePage(app));
 		pages.put("settings", new SettingsPage(app));
 
