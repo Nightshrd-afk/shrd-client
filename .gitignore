@@ -5,6 +5,8 @@ out/
 
 # Launcher build output and the packaged download
 dist/
+# Where build-installer.sh writes when SHRD_OUT is set to a scratch folder (the update test)
+dist-test/
 launcher/build/
 
 .idea/
