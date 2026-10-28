@@ -98,8 +98,10 @@ else
 		# The password only protects a key that never leaves this machine, and both live in
 		# .toolchain/, which git ignores.
 		head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n' >"$PASSWORD_FILE"
-	fi		PASSWORD="$(cat "$PASSWORD_FILE")"
-		ALIAS="shrd"
+	fi
+
+	PASSWORD="$(cat "$PASSWORD_FILE")"
+	ALIAS="shrd"
 
 		# This key pair is generated, disposable and only ever used from here, so a keystore that does
 		# not open with the password beside it (an interrupted run can leave the two out of step) is
