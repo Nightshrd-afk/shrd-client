@@ -210,15 +210,28 @@ echo "  published sha256 $REMOTE_SHA"
 echo "  local     sha256 $LOCAL_SHA"
 [ "$REMOTE_SHA" = "$LOCAL_SHA" ] || fail "the published zip does not match the zip that was built"
 
+# GitHub rewrites spaces in uploaded asset names to dots, so the installers are published as
+# "Shrd.Launcher-1.0.0.exe". Guessing the URL from the local filename would 404, so the probe uses
+# the name the release itself reports, and checks its size: a truncated upload is as broken as a
+# missing one.
+ASSET_LIST="$("$GH" release view "$TAG" --json assets --jq '.assets[] | .name + " " + (.size|tostring)')"
+
 # A HEAD request is enough for the installers: the zip above already proved the release serves real
 # bytes, and these two are 37 MB each.
-for asset in "Shrd%20Launcher-$VERSION.exe" "Shrd%20Launcher-$VERSION.msi"; do
-	probe="$(curl -fsSLI -w '\nHTTP-CODE %{http_code}\n' "https://github.com/$SLUG/releases/latest/download/$asset")" \
-		|| fail "${asset//%20/ } is not downloadable from the release"
-	code="$(printf '%s' "$probe" | grep -oE 'HTTP-CODE [0-9]+' | cut -d' ' -f2)"
-	length="$(printf '%s' "$probe" | grep -iE '^content-length:' | tail -1 | grep -oE '[0-9]+' || true)"
-	echo "${asset//%20/ }  HTTP $code  ${length:-unknown} bytes"
-	[ "$code" = "200" ] || fail "${asset//%20/ } is not downloadable from the release"
+for installer in "Shrd Launcher-$VERSION.exe" "Shrd Launcher-$VERSION.msi"; do
+	REMOTE_NAME="${installer// /.}"
+	LOCAL_SIZE="$(wc -c < "$OUT/$installer" | tr -d ' ')"
+	LINE="$(printf '%s\n' "$ASSET_LIST" | grep -F "$REMOTE_NAME " || true)"
+
+	[ -n "$LINE" ] || fail "$installer was not uploaded to the release"
+	REMOTE_SIZE="${LINE##* }"
+	[ "$REMOTE_SIZE" = "$LOCAL_SIZE" ] || fail "$REMOTE_NAME is $REMOTE_SIZE bytes on the release, expected $LOCAL_SIZE"
+
+	code="$(curl -fsSL -o /dev/null -w '%{http_code}' -L -I \
+		"https://github.com/$SLUG/releases/latest/download/$REMOTE_NAME")" \
+		|| fail "$REMOTE_NAME is not downloadable from the release"
+	echo "$REMOTE_NAME  HTTP $code  $REMOTE_SIZE bytes"
+	[ "$code" = "200" ] || fail "$REMOTE_NAME is not downloadable from the release"
 done
 
 section "the launcher's own update check, against the live release"
