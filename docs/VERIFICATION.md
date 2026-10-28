@@ -850,6 +850,63 @@ human clicked them in a live window; and no machine without this repository's ke
 `UnknownError` signature UI. Signing with a purchased certificate is untested for the obvious reason
 that buying one needs the identity checks only the certificate authority can run.
 
+### 4b.19 Sign-in without setup, the redrawn rail, and 1.5.0
+
+Three changes, one of which had to be measured rather than judged.
+
+**Sign-in without an Azure application.** The device-code request was checked against the live
+endpoint before any code changed, with the public client id and the live.com host:
+
+```
+POST https://login.live.com/oauth20_connect.srf
+  client_id=00000000402b5328 & scope=service::user.auth.xboxlive.com::MBI_SSL & response_type=device_code
+→ {"user_code":"ZZ94XTZM","device_code":"-Drb2A3…","verification_uri":"https://www.microsoft.com/link",…}
+```
+
+The same curl against `login.microsoftonline.com/consumers/oauth2/v2.0/devicecode` with that id
+answers `unauthorized_client`, which is why the endpoints moved as well as the default id: this id
+belongs to the live.com device flow, and its token is an MSA token, which is exactly what the Xbox
+Live step already sends as `d=…`. The "One-time setup" card is gone — `--shot login` now opens on
+**SIGN IN** directly ([build/shot/login-1.5.0.png](../build/shot/login-1.5.0.png)).
+
+**The rail.** Seven glyphs redrawn on one 24-unit grid with one stroke weight, a filled accent tile
+for the selected page, a sliders icon for Settings and a palette with a thumb notch for Customise
+(the old palette read as a smiley and the old cog as a sun at 20px). Checked by rendering Home and
+looking: [build/shot/home-1.5.0b.png](../build/shot/home-1.5.0b.png).
+
+**Frame rate, measured.** `./gradlew runGametest` ran to BUILD SUCCESSFUL and printed:
+
+| Phase | What it ran | Median FPS |
+|---|---|---|
+| A2 | overlays off, VSync off, limit unlimited | 461 |
+| B2 | overlays on, same | 433 |
+| C1 | Performance Mode | 410 |
+| C2 | Performance Mode off (control) | 405 |
+| **C3** | **Performance Mode + Fast HUD** | **575** |
+| D1 | Performance Mode, 8 chunks | 422 |
+| E1 | VSync on + 120 limit | 60 |
+
+E1 is the point of the whole exercise: a stock install is locked to the monitor. C1 against C2 says
+the vanilla graphics levers are worth nothing at this window size once they are already low, while
+C3 against both says the overlays are worth about 170 FPS: each HUD string was drawn twice for its
+shadow. Fast HUD draws it once and squares the panel corners, so it is now on by default.
+
+**Limits of that measurement.** All of it is at 854x480 — the gametest window is not resizable, so
+the F-phases were skipped by the harness itself rather than reported at a wrong pixel count — and
+no 1080p figure exists. Frame-work FPS (764 in C3) is higher than the counter, so the counter is
+what these numbers quote. The drift between runs is real: A2 was 743 FPS in the previous run of the
+same code.
+
+**1.5.0 is published.** `publish-release.sh 1.5.0` exited 0: manifest sha256 `22e09f36…`,
+`Shrd.Launcher-1.5.0.exe` / `.msi` at HTTP 200, `current=1.5.0 published=1.5.0` → `UP-TO-DATE`, and
+the installers are signed (`signature valid, certificate not trusted by Windows`). The installed
+1.4.0 saw it: `SHRD-UPDATE-AVAILABLE version=1.5.0`, and the download unpacked to
+`updates/1.5.0/unpacked`.
+
+**Not applied:** mirroring it into `Program Files` needs the one elevated step, and that approval
+timed out, so the installed copy is still 1.4.0 with the 1.5.0 files staged beside it. The swap is
+the same command recorded in 4b.18.
+
 ## 5. Mock-up test harness in the repo
 
 - `tools/UiCheck.java` — colour assertions on a screenshot (exits non-zero on failure).
