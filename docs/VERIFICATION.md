@@ -1138,3 +1138,42 @@ SHRD-UPDATE-AVAILABLE version=1.6.0 url=…/shrd-launcher-1.6.0-windows-x64.zip
 So the installed 1.5.0 will offer 1.6.0 on its next launch. **It was not installed over Program
 Files this round** — that still needs the elevation prompt, so the machine is running 1.5.0 until
 the offer is accepted.
+
+### 4b.23 1.6.0 installed over the 1.5.0 in Program Files
+
+The published MSI was installed silently over the existing copy, through an approved elevation
+prompt:
+
+```
+msiexec.exe /i "…\dist\Shrd Launcher-1.6.0.msi" /qn /norestart /l*v build\msi-install-1.6.0.log
+→ approved, exit 0
+```
+
+The upgrade replaced the app image rather than sitting beside it — `app/` now holds only
+`shrd-launcher-1.6.0.jar` (1.5.0 is gone) — and the install reports the new version and agrees with
+the live release:
+
+```
+SHRD-VERSION 1.6.0 installed=C:\Program Files\Shrd Launcher
+SHRD-UPDATE current=1.6.0 manifest=…/shrd-launcher-latest.json
+SHRD-UPDATE-UP-TO-DATE
+```
+
+**The installed copy finds Java on its own now**, which is what 1.5.0 could not do. `--shot settings`
+run from the install (`build/shot/installed-1.6-settings.png`) reads:
+
+```
+Using Java 25.0.5 — …gram Files\Shrd Launcher\runtime\bin\java.exe
+status strip: Java 25.0.5  ·  shrd launcher 1.6.0
+```
+
+Shell integration survived the upgrade, and there is exactly one entry in Apps & features:
+
+```
+Start Menu\Programs\Shrd Launcher\Shrd Launcher.lnk   (recreated 01:38)
+DisplayName     : Shrd Launcher
+DisplayVersion  : 1.6.0
+InstallLocation : C:\Program Files\Shrd Launcher\
+```
+
+The uninstall was still not run: it would remove the only installed copy on this machine.
