@@ -15,13 +15,9 @@ import javax.swing.Box;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.awt.Toolkit;
-import java.awt.datatransfer.StringSelection;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -49,7 +45,8 @@ public final class SettingsPage extends Page {
 	private final JLabel versionValue = Ui.accent(dev.shrd.launcher.Version.CURRENT);
 	private final JLabel updateStatus = Ui.dim("");
 	private final Ui.Button updateButton = Ui.primary("Check for updates").size(210, 34);
-	private final JLabel backgroundValue = Ui.dim("none — the built-in purple gradient");
+	private final JLabel backgroundValue = Ui.dim("none — the built-in gradient");
+	private final JLabel accentValue = Ui.accent("");
 	private final Ui.Field clientIdField = new Ui.Field("Azure application (client) id");
 	private final JLabel signInStatus = Ui.dim("");
 	private final Ui.Button signInButton = Ui.primary("Sign in with Microsoft").size(240, 34);
@@ -169,55 +166,24 @@ public final class SettingsPage extends Page {
 		return row;
 	}
 
-	/** The Home banner: the one piece of the launcher that is purely yours. */
+	/** Colour and background live on their own page; this card is the signpost to it. */
 	private JPanel appearanceCard() {
 		Ui.Card card = new Ui.Card("Appearance");
-		card.body().add(Ui.dim("The banner behind your skin on Home. Any PNG or JPG works."));
-		card.body().add(Ui.gap(3));
-		card.body().add(Ui.dim("It is copied into the launcher's folder, so the original can move later."));
+		card.body().add(Ui.dim("The colour theme and the background are on the Customisation page now."));
 		card.body().add(Ui.gap(12));
+		card.body().add(rowLine("Accent", accentValue));
+		card.body().add(Ui.gap(8));
 		card.body().add(rowLine("Background", backgroundValue));
 		card.body().add(Ui.gap(12));
 
 		JPanel buttons = Ui.row();
-		buttons.add(Ui.primary("Choose image…").size(170, 34).withGlyph(Icons::folder).onClick(button -> chooseBackground()));
-		buttons.add(Ui.hgap(10));
-		buttons.add(Ui.secondary("Reset to gradient").size(170, 34).onClick(button -> {
-			app.config.backgroundImage = "";
-			app.config.save();
-			app.status("Background reset");
-			app.refresh();
-		}));
+		buttons.add(Ui.primary("Open Customisation").size(200, 34).withGlyph(Icons::palette)
+			.onClick(button -> app.showPage("customise")));
 		buttons.add(Box.createHorizontalGlue());
 		buttons.setAlignmentX(LEFT_ALIGNMENT);
 		buttons.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
 		card.body().add(buttons);
 		return card;
-	}
-
-	private void chooseBackground() {
-		JFileChooser chooser = new JFileChooser();
-		chooser.setDialogTitle("Pick a background image");
-		chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-		chooser.setFileFilter(new FileNameExtensionFilter("Images (PNG, JPG, GIF, BMP)", "png", "jpg", "jpeg", "gif", "bmp"));
-
-		if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
-			return;
-		}
-
-		try {
-			Path source = chooser.getSelectedFile().toPath();
-			Path folder = ShrdPaths.backgrounds();
-			Files.createDirectories(folder);
-			Path target = folder.resolve(source.getFileName().toString());
-			Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-			app.config.backgroundImage = target.toAbsolutePath().toString();
-			app.config.save();
-			app.status("Background set — it is on the Home page now");
-			app.refresh();
-		} catch (Exception e) {
-			app.status("Could not use that image: " + e.getMessage());
-		}
 	}
 
 	/** Microsoft sign-in: real tokens, so online servers accept the account. */
@@ -239,7 +205,17 @@ public final class SettingsPage extends Page {
 		card.body().add(Ui.gap(10));
 
 		JPanel buttons = Ui.row();
-		signInButton.onClick(button -> startMicrosoftSignIn());
+		signInButton.onClick(button -> {
+			String id = clientIdField.getText().trim();
+
+			if (!id.isBlank()) {
+				app.config.microsoftClientId = id;
+				app.config.save();
+			}
+
+			dev.shrd.launcher.ui.SignInDialog.show(this, app);
+			app.refresh();
+		});
 		buttons.add(signInButton);
 		buttons.add(Ui.hgap(10));
 		buttons.add(Ui.secondary("Save client id").size(150, 34).onClick(button -> {
@@ -263,84 +239,6 @@ public final class SettingsPage extends Page {
 		signInStatus.setAlignmentX(LEFT_ALIGNMENT);
 		card.body().add(signInStatus);
 		return card;
-	}
-
-	/**
-	 * Device-code flow: ask Microsoft for a code, show it, poll in the background, then install the
-	 * account. The polling is deliberately off the event thread — a code can wait minutes.
-	 */
-	private void startMicrosoftSignIn() {
-		String clientId = clientIdField.getText().trim();
-
-		if (clientId.isBlank()) {
-			JOptionPane.showMessageDialog(this,
-				"Paste an Azure application (client) id first.\n\nportal.azure.com → App registrations → New registration,\n"
-					+ "then Authentication → Allow public client flows = Yes.\nThe Application (client) ID is on the overview page.",
-				"A client id is needed", JOptionPane.INFORMATION_MESSAGE);
-			return;
-		}
-
-		app.config.microsoftClientId = clientId;
-		app.config.save();
-		signInButton.setEnabled(false);
-		signInStatus.setForeground(Theme.TEXT_DIM);
-		signInStatus.setText("Asking Microsoft for a code…");
-
-		Thread worker = new Thread(() -> {
-			try {
-				MicrosoftAuth.Device device = MicrosoftAuth.begin(clientId);
-				SwingUtilities.invokeLater(() -> {
-					signInStatus.setForeground(Theme.TEXT_ACCENT);
-					signInStatus.setText("Go to " + device.verificationUri() + " and enter " + device.userCode() + "  (code copied)");
-					Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(device.userCode()), null);
-
-					try {
-						java.awt.Desktop.getDesktop().browse(java.net.URI.create(device.verificationUri()));
-					} catch (Exception ignored) {
-						// The URL is on screen either way.
-					}
-				});
-
-				Account account = MicrosoftAuth.complete(
-					MicrosoftAuth.await(clientId, device, message -> SwingUtilities.invokeLater(() -> signInStatus.setText(message))),
-					message -> SwingUtilities.invokeLater(() -> signInStatus.setText(message)));
-
-				SwingUtilities.invokeLater(() -> installAccount(account));
-			} catch (Exception e) {
-				SwingUtilities.invokeLater(() -> {
-					signInButton.setEnabled(true);
-					signInStatus.setForeground(Theme.BAD);
-					signInStatus.setText(e.getMessage() == null ? e.toString() : e.getMessage());
-				});
-			}
-		}, "shrd-microsoft-signin");
-
-		worker.setDaemon(true);
-		worker.start();
-	}
-
-	/** Replaces an account with the same name in place, so a re-sign-in does not duplicate it. */
-	private void installAccount(Account signedIn) {
-		Account existing = app.config.findAccount(signedIn.name);
-
-		if (existing != null) {
-			existing.type = signedIn.type;
-			existing.uuid = signedIn.uuid;
-			existing.accessToken = signedIn.accessToken;
-			existing.refreshToken = signedIn.refreshToken;
-			existing.xuid = signedIn.xuid;
-			existing.skinUrl = signedIn.skinUrl;
-		} else {
-			app.config.accounts.add(signedIn);
-		}
-
-		app.config.activeAccount = signedIn.name;
-		app.config.save();
-		signInButton.setEnabled(true);
-		signInStatus.setForeground(Theme.GOOD);
-		signInStatus.setText("Signed in as " + signedIn.name + " — online servers will accept this account");
-		app.status("Signed in as " + signedIn.name);
-		app.refresh();
 	}
 
 	private JPanel accountsCard() {
@@ -559,9 +457,15 @@ public final class SettingsPage extends Page {
 			clientIdField.setText(app.config.microsoftClientId);
 		}
 
+		if (app.config.activeAccount().online()) {
+			signInStatus.setForeground(Theme.GOOD);
+			signInStatus.setText("Signed in as " + app.config.activeAccount().name + " — Java Edition");
+		}
+
+		accentValue.setText(Theme.currentHex());
 		String background = app.config.backgroundImage;
 		backgroundValue.setText(background == null || background.isBlank()
-			? "none — the built-in purple gradient"
+			? "none — the built-in gradient"
 			: Ui.elide(ShrdPaths.pretty(Path.of(background)), 52));
 		backgroundValue.setToolTipText(background == null || background.isBlank() ? "" : background);
 

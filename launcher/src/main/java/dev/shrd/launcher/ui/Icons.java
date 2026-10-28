@@ -147,6 +147,17 @@ public final class Icons {
 		g.fill(new java.awt.geom.Ellipse2D.Double(x + size * 0.18, y + size * 0.68, size * 0.1, size * 0.1));
 	}
 
+	/** A painter's palette with three wells, for the Customisation page. */
+	public static void palette(Graphics2D g, int x, int y, int size, Color color) {
+		g.setColor(color);
+		g.setStroke(stroke(size));
+		g.draw(new java.awt.geom.Ellipse2D.Double(x + size * 0.08, y + size * 0.08, size * 0.84, size * 0.84));
+		g.fill(new java.awt.geom.Ellipse2D.Double(x + size * 0.28, y + size * 0.24, size * 0.11, size * 0.11));
+		g.fill(new java.awt.geom.Ellipse2D.Double(x + size * 0.52, y + size * 0.20, size * 0.11, size * 0.11));
+		g.fill(new java.awt.geom.Ellipse2D.Double(x + size * 0.62, y + size * 0.48, size * 0.11, size * 0.11));
+		g.fill(new java.awt.geom.Ellipse2D.Double(x + size * 0.30, y + size * 0.58, size * 0.11, size * 0.11));
+	}
+
 	private static BasicStroke stroke(int size) {
 		return new BasicStroke(Math.max(1.3f, size * 0.09f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
 	}

@@ -193,13 +193,12 @@ re-upload of the old one.
 
 The current release: https://github.com/Nightshrd-afk/shrd-client/releases/tag/v1.1.0
 
-### What it does
-
-- **Home** — a banner with your own skin standing in it (fetched by name, or from the signed-in
-  profile), the account chip, and a Play button on every profile that turns into Stop. The banner
-  background is yours: Settings → Appearance takes any PNG or JPG and copies it into the launcher's
-  folder. Without one it is the purple gradient.
-- **Accounts** — offline names, or **Microsoft sign-in** for servers that verify you.
+### What it does- **Home** — a banner with your own skin standing in it as a turned, lit 3D figure (fetched by name,
+  or from the signed-in profile), the account chip, and a Play button on every profile that turns
+  into Stop. The banner background is yours: **Customise** takes any PNG or JPG and copies it into
+  the launcher's folder. Without one it is the theme's own gradient.
+- **Accounts** — offline names, or **Microsoft sign-in** for servers that verify you, in its own
+  window that ends by showing the Java Edition account it signed in.
 - **Instances** — create, edit and delete instances. Each one gets its own folder, mods, worlds and
   settings, with a Minecraft version (read live from Mojang), a mod loader, memory, an optional
   fixed window size and extra JVM arguments.
@@ -211,8 +210,13 @@ The current release: https://github.com/Nightshrd-afk/shrd-client/releases/tag/v
   address it prints is what you and your friends join.
 - **Console** — the launcher's own steps and the game's output, live, colour-coded, with the game's
   log file one press away.
+- **Customise** — the launcher's colour theme and background, in one place and applied without a
+  restart. A theme is one accent colour (eight presets, a hex box, or the system colour picker) and
+  every panel, row, border and gradient is derived from it, so the whole launcher changes rather
+  than one button. The background is any PNG or JPG, blurred and dimmed behind the pages and shown
+  full size in the Home banner.
 - **Settings** — Java detection (the bundled `.toolchain` JDK, then `JAVA_HOME`, then `PATH`),
-  default memory and JVM arguments, the Home background, offline accounts (pick a name; the launcher
+  default memory and JVM arguments, offline accounts (pick a name; the launcher
   derives the same offline UUID Minecraft's own launcher uses), and Microsoft sign-in.
 
 Everything lives in `~/.shrd-launcher`: shared `libraries`, `assets` and `versions` caches, one
@@ -240,7 +244,7 @@ It also takes flags, which is how the launcher's own verification drives it:
 --launch [instance]            start the game
 --wait <seconds>               with --launch: wait this long for the game to exit
 --versions                     list Minecraft releases from Mojang
---shot <page>[,<file.png>]     render a page to a PNG (used for the theme check)
+--shot <page>[,<file.png>]     render a page to a PNG (home|instances|mods|servers|console|customise|settings)
 --home <dir>                   use a different data folder
 --version                      print the version and where this copy is installed
 --check-update                 compare this build with the update manifest
@@ -280,10 +284,12 @@ Forwarding TCP 25565 to the address shown as *Join from your network* by hand do
 ### Microsoft sign-in, and what it still needs
 
 Servers that verify you — Donut SMP and most public servers — need a real Microsoft session.
-**Settings → Microsoft sign-in** runs the same chain the official launcher does: device code →
-Microsoft token → Xbox Live → XSTS → Minecraft services → profile. The Minecraft token it ends with
-is handed to the game as `--access-token`, so the server accepts the session; the profile also
-supplies the real name, UUID and skin.
+**Settings → Microsoft sign-in** opens the launcher's sign-in window (or use the account chip on
+Home). It is laid out like the official launcher's front door: the name over one dark card, a single
+large **Sign In** button, and a **Sign Up** link — but it runs the same chain the official launcher
+does: device code → Microsoft token → Xbox Live → XSTS → Minecraft services → profile. What comes
+back is the Java Edition account itself: Minecraft name, UUID and skin, shown on the card and made
+the active account, so the token handed to the game as `--access-token` is the one a server accepts.
 
 It needs one thing this project cannot ship: a free Azure application (client) id. That id is
 public by design — it travels in the URL — but it belongs to whoever registers the app:

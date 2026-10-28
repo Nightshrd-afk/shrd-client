@@ -36,6 +36,9 @@ public final class ShrdLauncher {
 
 		ShrdPaths.ensureDirs();
 		LauncherConfig config = LauncherConfig.load();
+		// The accent is chosen on the Customisation page and saved, so the palette has to exist
+		// before any window (or screenshot) is built.
+		dev.shrd.launcher.ui.Theme.apply(config.accentColor);
 		String instance = options.get("instance");
 
 		if (instance != null && config.findInstance(instance) != null) {
@@ -178,7 +181,7 @@ public final class ShrdLauncher {
 			  --host [instance]              run the local server for this instance
 			  --wait <seconds>               with --launch: wait this long for the game to exit,
 			                                 with --host: how long to keep the server up
-			  --shot <page>[,<file.png>]     render a page (home|instances|mods|servers|console|settings) to a PNG
+			  --shot <page>[,<file.png>]     render a page to a PNG (home|instances|mods|servers|console|customise|settings)
 			  --width <px> --height <px>     size used by --shot
 			""");
 	}

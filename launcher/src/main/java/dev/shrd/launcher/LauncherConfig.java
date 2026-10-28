@@ -33,8 +33,13 @@ public final class LauncherConfig {
 	public String updateManifestUrl = Updater.DEFAULT_MANIFEST_URL;
 	/** Check once when the launcher starts, as well as when the button is pressed. */
 	public boolean checkForUpdatesOnStart = true;
-	/** Image drawn behind the Home hero. Blank means the built-in purple gradient. */
+	/** Image drawn behind the launcher. Blank means the built-in gradient. */
 	public String backgroundImage = "";
+	/**
+	 * Accent the whole launcher is themed from, {@code #RRGGBB}. Set on the Customisation page; the
+	 * default is the same purple Shrd Client wears in game.
+	 */
+	public String accentColor = "#A855F7";
 	/**
 	 * Azure application (client) id used for Microsoft sign-in. A public client with
 	 * {@code XboxLive.signin} delegated permission and device-code flow enabled. Blank means the
@@ -99,6 +104,10 @@ public final class LauncherConfig {
 
 		if (backgroundImage == null) {
 			backgroundImage = "";
+		}
+
+		if (accentColor == null || accentColor.isBlank()) {
+			accentColor = "#A855F7";
 		}
 
 		if (microsoftClientId == null) {

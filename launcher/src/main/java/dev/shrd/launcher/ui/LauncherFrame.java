@@ -4,6 +4,7 @@ import dev.shrd.launcher.Account;
 import dev.shrd.launcher.LauncherConfig;
 import dev.shrd.launcher.Log;
 import dev.shrd.launcher.ui.pages.ConsolePage;
+import dev.shrd.launcher.ui.pages.CustomisationPage;
 import dev.shrd.launcher.ui.pages.HomePage;
 import dev.shrd.launcher.ui.pages.InstancesPage;
 import dev.shrd.launcher.ui.pages.ModsPage;
@@ -36,24 +37,25 @@ import java.util.Map;
  */
 public final class LauncherFrame extends JFrame {
 
-	public static final String[] PAGE_IDS = { "home", "instances", "mods", "servers", "console", "settings" };
+	public static final String[] PAGE_IDS = { "home", "instances", "mods", "servers", "console", "customise", "settings" };
 
 	private final App app;
 	private final CardLayout cards = new CardLayout();
 	private final JPanel content = new JPanel(cards);
+	private final JPanel root = new Backdrop();
 	private final Map<String, Page> pages = new LinkedHashMap<>();
 	private final Map<String, RailItem> railItems = new LinkedHashMap<>();
-	private final JLabel statusLabel = Ui.dim("Ready");
-	private final JLabel infoLabel = Ui.dim("");
 	private final Ui.Progress progress = new Ui.Progress();
 	private final JPanel progressHolder = Ui.row(new BorderLayout());
+	// Recreated on every rebuild, because a label keeps the colour it was constructed with.
+	private JLabel statusLabel = Ui.dim("Ready");
+	private JLabel infoLabel = Ui.dim("");
 	private String current = "home";
 	private boolean wasRunning;
 
 	public LauncherFrame(LauncherConfig config, String initialPage) {
 		super("Shrd Launcher");
 		this.app = new App(config);
-		app.onShowPage(this::showPage);
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setUndecorated(true);
 		setIconImage(windowIcon());
@@ -61,10 +63,31 @@ public final class LauncherFrame extends JFrame {
 		setSize(1180, 740);
 		setLocationRelativeTo(null);
 
-		JPanel root = new JPanel(new BorderLayout());
-		root.setBackground(Theme.WINDOW);
-		root.setBorder(javax.swing.BorderFactory.createLineBorder(Theme.WINDOW_EDGE, 1));
+		// A theme change rebuilds the whole interface: custom painting picks the new colours up by
+		// itself, but labels, buttons and switches captured theirs when they were created.
+		app.onThemeChange(this::rebuild);
+		build();
+		showPage(initialPage == null || !pages.containsKey(initialPage) ? "home" : initialPage);
+		new Timer(700, event -> poll()).start();
+	}
 
+	/** Builds the chrome and every page against the current palette. */
+	private void build() {
+		app.resetListeners();
+		app.onShowPage(this::showPage);
+		app.onStage((stage, detail) -> onStage(stage));
+
+		statusLabel = Ui.dim("Ready");
+		infoLabel = Ui.dim("");
+		infoLabel.setText(app.javaDescription() + "  ·  shrd launcher " + dev.shrd.launcher.Version.CURRENT);
+		app.setStatusHandler(statusLabel::setText);
+		app.setProgressHandler(this::setProgress);
+
+		pages.clear();
+		railItems.clear();
+		content.removeAll();
+		root.removeAll();
+		root.setBorder(javax.swing.BorderFactory.createLineBorder(Theme.WINDOW_EDGE, 1));
 		root.add(titleBar(), BorderLayout.NORTH);
 		root.add(rail(), BorderLayout.WEST);
 		root.add(contentArea(), BorderLayout.CENTER);
@@ -75,14 +98,16 @@ public final class LauncherFrame extends JFrame {
 			app.onRefresh(page::reload);
 		}
 
-		showPage(initialPage == null || !pages.containsKey(initialPage) ? "home" : initialPage);
-		app.onStage((stage, detail) -> onStage(stage));
-		app.setStatusHandler(statusLabel::setText);
-		app.setProgressHandler(this::setProgress);
-		infoLabel.setText(app.javaDescription() + "  ·  shrd launcher " + dev.shrd.launcher.Version.CURRENT);
+		root.revalidate();
+		root.repaint();
 		app.refresh();
+	}
 
-		new Timer(700, event -> poll()).start();
+	public void rebuild() {
+		String page = current;
+		build();
+		showPage(pages.containsKey(page) ? page : "home");
+		repaint();
 	}
 
 	/** The window and taskbar icon: the shrd gem, as a jar resource rather than a file path. */
@@ -189,6 +214,7 @@ public final class LauncherFrame extends JFrame {
 		rail.add(railItem("mods", "Mods", Icons::mods, () -> showPage("mods")));
 		rail.add(railItem("servers", "Servers", Icons::server, () -> showPage("servers")));
 		rail.add(railItem("console", "Console", Icons::terminal, () -> showPage("console")));
+		rail.add(railItem("customise", "Customise", Icons::palette, () -> showPage("customise")));
 		rail.add(railItem("settings", "Settings", Icons::gear, () -> showPage("settings")));
 		rail.add(javax.swing.Box.createVerticalGlue());
 
@@ -225,6 +251,7 @@ public final class LauncherFrame extends JFrame {
 		pages.put("mods", new ModsPage(app));
 		pages.put("servers", new ServersPage(app));
 		pages.put("console", new ConsolePage(app));
+		pages.put("customise", new CustomisationPage(app));
 		pages.put("settings", new SettingsPage(app));
 
 		for (Map.Entry<String, Page> entry : pages.entrySet()) {
@@ -269,6 +296,62 @@ public final class LauncherFrame extends JFrame {
 	}
 
 	// ------------------------------------------------------------------ pieces
+
+	/**
+	 * The window's own backdrop: the player's image under a heavy scrim, or just the flat theme
+	 * colour. It is dimmed this hard on purpose — every page's text is designed for near-black, and a
+	 * photo at full brightness would make half the launcher unreadable.
+	 */
+	private final class Backdrop extends JPanel {
+		private String scaledFor = "";
+		private java.awt.image.BufferedImage scaled;
+
+		private Backdrop() {
+			super(new BorderLayout());
+			setBackground(Theme.WINDOW);
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			super.paintComponent(graphics);
+			String path = app.config.backgroundImage;
+			java.awt.image.BufferedImage image = Backgrounds.of(path);
+
+			if (image == null) {
+				return;
+			}
+
+			// A deliberately soft backdrop: the photo is shrunk to a thumbnail and blown back up,
+			// which blurs it, so it reads as wallpaper behind the pages instead of competing with
+			// the text drawn on top. The Home banner still shows the same picture at full sharpness.
+			if (!path.equals(scaledFor)) {
+				scaledFor = path;
+				double factor = Math.min(1.0, 110.0 / Math.max(1, image.getWidth()));
+				int smallW = Math.max(20, (int) Math.round(image.getWidth() * factor));
+				int smallH = Math.max(20, (int) Math.round(image.getHeight() * factor));
+				scaled = new java.awt.image.BufferedImage(smallW, smallH, java.awt.image.BufferedImage.TYPE_INT_RGB);
+				Graphics2D small = scaled.createGraphics();
+				small.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+				small.drawImage(image, 0, 0, smallW, smallH, null);
+				small.dispose();
+			}
+
+			Graphics2D g = (Graphics2D) graphics.create();
+			Ui.hints(g);
+			g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+			int width = getWidth();
+			int height = getHeight();
+			double scale = Math.max(width / (double) scaled.getWidth(), height / (double) scaled.getHeight());
+			int drawWidth = (int) Math.ceil(scaled.getWidth() * scale);
+			int drawHeight = (int) Math.ceil(scaled.getHeight() * scale);
+			g.drawImage(scaled, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight, null);
+			g.setColor(new Color(8, 4, 16, 176));
+			g.fillRect(0, 0, width, height);
+			g.setPaint(new java.awt.GradientPaint(0, 0, Theme.alpha(Theme.WINDOW, 150), 0, height, Theme.alpha(Theme.WINDOW, 235)));
+			g.fillRect(0, 0, width, height);
+			g.dispose();
+		}
+	}
 
 	/** A rail entry: glyph above a small label, with the accent bar when selected. */
 	private static final class RailItem extends JComponent {

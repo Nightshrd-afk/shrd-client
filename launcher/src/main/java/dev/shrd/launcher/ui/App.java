@@ -31,6 +31,8 @@ public final class App {
 	};
 	private Consumer<Double> progressHandler = fraction -> {
 	};
+	private Runnable themeHandler = () -> {
+	};
 
 	public final LauncherConfig config;
 	public final LaunchService service = new LaunchService();
@@ -91,6 +93,41 @@ public final class App {
 		refreshers.add(refresher);
 	}
 
+	/**
+	 * Called after a theme change, so the window can rebuild itself: colours are read at paint time
+	 * but labels and buttons captured theirs when they were created, and only a rebuild replaces
+	 * every one of them.
+	 */
+	public void onThemeChange(Runnable handler) {
+		this.themeHandler = handler;
+	}
+
+	/** Forgets every registered page listener, before a rebuild registers the new pages. */
+	public void resetListeners() {
+		refreshers.clear();
+		stageListeners.clear();
+	}
+
+	/** Switches the accent, saves it, and rebuilds the window in the new palette. */
+	public void setAccent(String hex) {
+		Theme.apply(hex);
+		config.accentColor = Theme.currentHex();
+		config.save();
+		status("Theme: " + config.accentColor);
+		themeHandler.run();
+		refresh();
+	}
+
+	/** Sets or clears the background image, saves it, and repaints the window. */
+	public void setBackground(String path) {
+		config.backgroundImage = path == null ? "" : path;
+		config.save();
+		Backgrounds.forget();
+		status(config.backgroundImage.isBlank() ? "Background reset" : "Background set");
+		themeHandler.run();
+		refresh();
+	}
+
 	public void onStage(StageListener listener) {
 		stageListeners.add(listener);
 	}
@@ -112,6 +149,30 @@ public final class App {
 
 	public void showPage(String id) {
 		pageHandler.accept(id);
+	}
+
+	/**
+	 * Puts a signed-in account into the config, keeping the same name in place rather than adding a
+	 * duplicate, and makes it active. Shared by the sign-in window and the Settings page.
+	 */
+	public void installAccount(Account signedIn) {
+		Account existing = config.findAccount(signedIn.name);
+
+		if (existing != null) {
+			existing.type = signedIn.type;
+			existing.uuid = signedIn.uuid;
+			existing.accessToken = signedIn.accessToken;
+			existing.refreshToken = signedIn.refreshToken;
+			existing.xuid = signedIn.xuid;
+			existing.skinUrl = signedIn.skinUrl;
+		} else {
+			config.accounts.add(signedIn);
+		}
+
+		config.activeAccount = signedIn.name;
+		config.save();
+		status("Signed in as " + signedIn.name);
+		refresh();
 	}
 
 	public void setProgressHandler(Consumer<Double> handler) {

@@ -626,6 +626,78 @@ copy no longer existed); what was exercised is the release itself, and the earli
 that proved the same mechanism. A 1.0.0 install would have found 1.1.0 — that is what the manifest
 it already points at now serves.
 
+### 4b.14 The sign-in window, rebuilt after the official launcher
+
+The sign-in was a form inside Settings. It is now its own window, laid out the way the official
+launcher's front door is: the product's name straddling the top edge of one dark card, one large
+**SIGN IN** button, **Sign Up** under it, and the corner chip where the official launcher keeps its
+language picker.
+
+| What | Evidence |
+|---|---|
+| The window, ready to sign in | `docs/screenshots/launcher-login.png` (900x620, the card's real paint) |
+| Signed in, with the Java account | `docs/screenshots/launcher-login-signed.png` — captured from the **real window** with `tools/window-shot.ps1`, not from an offscreen render |
+| The same figure on Home | `docs/screenshots/launcher-home-skin-3d.png` |
+| The code screen and the error screen | rendered the same way with a fabricated device code and a fabricated failure, both without a Microsoft account; the code, the buttons and the message all fit, and the footer says what state the account is in |
+| The one-time app-id state | rendered the same way; 3 numbered steps, the field, Save / Open Azure, and nothing clipped |
+
+The window was opened for real (`SignInDialog.show`, undecorated, modal, Esc closes) by a throwaway
+harness against the packaged jar, and captured by process id — so the shot above is the window a
+player would get, at its packed size of 900x620. No exception was logged.
+
+**What changed in the figure.** The skin was drawn as a flat front view — the 2002-sprite look the
+owner objected to. It is now six boxes (head, body, two arms, two legs) built from the standard skin
+layout and turned 24° towards the viewer with a 7° downward tilt, so the front, one side and the top
+of the head are all visible. Each face is lit separately (front 1.0, side 0.78, top 1.10), seams
+between touching limbs are creased so the arms and legs do not read as one block, and the whole
+thing is rendered at three times size and scaled down, with a dark rim around the silhouette and a
+soft contact shadow. The mapping is exact — under an orthographic projection every face is a
+parallelogram, so an affine transform maps each skin tile onto it with no resampling of the texture
+itself.
+
+**The Java account really is what gets signed in.** The chain is unchanged (device code → Microsoft
+token → Xbox Live → XSTS → Minecraft services → profile), but the card now ends on the account that
+came back: Minecraft name, Mojang UUID, "active account", and the character wearing that profile's
+skin — and `App.installAccount` makes it the account Play uses, so its `--access-token` is what a
+verifying server sees. This is still **not** a completed live sign-in: it needs an Azure client id
+and a Microsoft account with Minecraft, and neither exists on this machine, so the XSTS → Minecraft
+steps remain code that has never carried a real token.
+
+### 4b.15 The Customisation page: themes and background, applied live
+
+A new rail page (`customise`) holds the two taste settings, and Settings → Appearance is now a
+signpost to it:
+
+| What | Evidence |
+|---|---|
+| The page, in a cyan theme | `docs/screenshots/launcher-customise.png` — eight presets, the current accent, a hex box, the system colour picker, and the background card with a real thumbnail of the image in use |
+| A theme and a background together | `docs/screenshots/launcher-home-themed.png` — cyan accent, `hud.png` behind the pages and full size in the Home banner |
+| Switching the accent in a running window | `docs/screenshots/launcher-customise-theme.png` — the same process after `setAccent("#22C55E")`, captured with `tools/window-shot.ps1`; harness printed `REBUILD-OK accent=#22C55E showing=yes`, no exception in its log |
+
+**How the theme works.** One accent is stored in the config (`accentColor`) and every surface is
+derived from it in `Theme.apply`: window, rail, panel, header, rows, track, border and text are each
+mixed a few percent towards the accent, and the accent's light/mid/dark variants drive buttons. That
+is why the crimson and emerald renders do not look like the purple launcher with a recoloured
+button. Because Swing labels and buttons fix their colour at construction, a change rebuilds the
+chrome and every page in place (`LauncherFrame.rebuild`), which is what the live capture above
+proves: same window, new palette, current page kept.
+
+**The background is a real window backdrop now**, not just the Home banner: the picture is shrunk to
+a thumbnail and blown back up (a cheap blur), dimmed, then drawn under every page — the banner still
+shows the same file sharp. Both read it through one cached loader (`Backgrounds`, keyed by path and
+modified time), so replacing the file on disk is picked up without a restart and painting a page no
+longer decodes a JPEG per frame.
+
+**Verified:** `gradle build` in `launcher/` (BUILD SUCCESSFUL); `--shot customise` in three palettes;
+the live switch above; `--shot settings` to confirm the Appearance card and its button; and the
+config round-trip (the accent and the background path survive a restart, which every `--shot` run
+did after the harness saved `#22C55E`). One bug this caught, now fixed: the first backdrop render
+drew the photo at full strength, which made page text fight the image — it is now blurred and dimmed.
+
+**Not verified:** the system colour-picker dialog itself was not opened in a live session (the hex
+path and the presets were), and no theme was checked on the sign-in window, which inherits the same
+palette by construction.
+
 ## 5. Mock-up test harness in the repo
 
 - `tools/UiCheck.java` — colour assertions on a screenshot (exits non-zero on failure).

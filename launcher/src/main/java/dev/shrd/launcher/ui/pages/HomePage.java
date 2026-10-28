@@ -334,24 +334,9 @@ public final class HomePage extends Page {
 		}
 	}
 
+	/** The shared cache, so a photo is decoded once rather than on every repaint. */
 	private BufferedImage background() {
-		String configured = app.config.backgroundImage;
-
-		if (configured == null || configured.isBlank()) {
-			return null;
-		}
-
-		Path file = Path.of(configured);
-
-		if (!Files.isRegularFile(file)) {
-			return null;
-		}
-
-		try (InputStream stream = Files.newInputStream(file)) {
-			return ImageIO.read(stream);
-		} catch (Exception e) {
-			return null;
-		}
+		return dev.shrd.launcher.ui.Backgrounds.of(app.config.backgroundImage);
 	}
 
 	/** The account pill: face, name, kind — and a menu of the other accounts on click. */
@@ -409,6 +394,17 @@ public final class HomePage extends Page {
 			}
 
 			menu.addSeparator();
+
+			if (account == null || !account.online()) {
+				JMenuItem signIn = new JMenuItem("Sign in with Microsoft…");
+				signIn.setFont(Theme.bold(13));
+				signIn.setOpaque(true);
+				signIn.setBackground(Theme.PANEL_HEADER);
+				signIn.setForeground(Theme.ACCENT_ALT);
+				signIn.addActionListener(action -> dev.shrd.launcher.ui.SignInDialog.show(this, app));
+				menu.add(signIn);
+			}
+
 			JMenuItem manage = new JMenuItem("Add account or sign in…");
 			manage.setFont(Theme.font(13));
 			manage.setOpaque(true);
