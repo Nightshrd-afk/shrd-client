@@ -903,9 +903,18 @@ the installers are signed (`signature valid, certificate not trusted by Windows`
 1.4.0 saw it: `SHRD-UPDATE-AVAILABLE version=1.5.0`, and the download unpacked to
 `updates/1.5.0/unpacked`.
 
-**Not applied:** mirroring it into `Program Files` needs the one elevated step, and that approval
-timed out, so the installed copy is still 1.4.0 with the 1.5.0 files staged beside it. The swap is
-the same command recorded in 4b.18.
+**Applied, on the second attempt.** The elevated mirror is the one step that cannot be automated
+away, and the first approval prompt timed out while the copy sat staged. Approved, the mirror ran and
+the install reads:
+
+```
+app/                             shrd-launcher-1.5.0.jar, mods/shrd-client-1.5.0.jar (1.4.0 gone)
+SHRD-VERSION 1.5.0 installed=C:\Program Files\Shrd Launcher
+SHRD-UPDATE current=1.5.0 published=1.5.0 → SHRD-UPDATE-UP-TO-DATE
+```
+
+Rendered from that installed copy, not the development build:
+[build/shot/installed-1.5.0.png](../build/shot/installed-1.5.0.png).
 
 ## 5. Mock-up test harness in the repo
 
