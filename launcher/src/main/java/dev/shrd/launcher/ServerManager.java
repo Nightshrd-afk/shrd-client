@@ -48,6 +48,8 @@ public final class ServerManager {
 
 	private final List<String> log = Collections.synchronizedList(new ArrayList<>());
 	private volatile State state = State.STOPPED;
+	private final PortMapper mapper = new PortMapper();
+	private volatile PortMapper.Result mapping = new PortMapper.Result(false, "", "");
 	private Process process;
 	private Path directory;
 	private Listener listener = text -> {
@@ -68,6 +70,16 @@ public final class ServerManager {
 
 	public String version() {
 		return version;
+	}
+
+	/** Whether the router accepted a port mapping, and what it said when it did not. */
+	public PortMapper.Result mapping() {
+		return mapping;
+	}
+
+	/** The address a friend types to join from anywhere; empty when the port is not open. */
+	public String publicAddress() {
+		return mapping.mapped() ? mapping.publicAddress() : "";
 	}
 
 	public void setListener(Listener listener) {
@@ -215,6 +227,13 @@ public final class ServerManager {
 		command.add("server.jar");
 		command.add("nogui");
 
+		// Open the port before the server binds it, so the address is ready when it comes up.
+		append("Asking the router to open port " + port() + " for friends…");
+		mapping = mapper.open(port());
+		append(mapping.mapped()
+			? "Open: friends can join at " + mapping.publicAddress()
+			: mapping.message());
+
 		append("Starting " + executable + " in " + ShrdPaths.pretty(folder));
 		ProcessBuilder builder = new ProcessBuilder(command).directory(folder.toFile());
 		builder.redirectErrorStream(true);
@@ -256,6 +275,8 @@ public final class ServerManager {
 
 		state = State.STOPPING;
 		append("Stopping the server…");
+		mapper.close();
+		mapping = new PortMapper.Result(false, "", "");
 
 		try (Writer stdin = new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8)) {
 			stdin.write("stop\n");

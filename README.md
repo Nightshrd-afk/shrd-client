@@ -266,9 +266,16 @@ players. An offline account → the server runs `online-mode=false` (the console
 anyone who knows the address can join under any name. That is fine for friends on your own network,
 and it is why sign-in matters if you open it up.
 
-Friends on the same network use the address shown as *Join from your network*. From outside, the
-cheapest free route is a tunnel such as [playit.gg](https://playit.gg/) — no port forwarding, and it
-keeps working as long as this PC is on.
+**Friends join by typing one address.** When the server starts, the launcher asks the router to open
+port 25565 (UPnP, the same mechanism games use) and shows the result under *Give this to your
+friends*: a public `ip:25565` they paste into **Multiplayer → Add Server**, or, if the router refused,
+what it said and what to do instead. The mapping is removed again when the server stops, so nothing
+stays open.
+
+When automatic forwarding is not possible — UPnP off in the router, or an ISP that puts you behind
+CGNAT — the page says so and the free alternative is a tunnel such as
+[playit.gg](https://playit.gg/), which needs no port forwarding and keeps working while this PC is on.
+Forwarding TCP 25565 to the address shown as *Join from your network* by hand does the same thing.
 
 ### Microsoft sign-in, and what it still needs
 

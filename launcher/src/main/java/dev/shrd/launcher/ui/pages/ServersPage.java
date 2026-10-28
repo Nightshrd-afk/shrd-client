@@ -34,6 +34,9 @@ public final class ServersPage extends Page {
 	private final JLabel version = Ui.text("");
 	private final Ui.Button startStop = Ui.primary("Start server").size(200, 38);
 	private final Ui.Area console = new Ui.Area(12, 60);
+	private final JLabel shareAddress = Ui.pageTitle("");
+	private final JLabel shareNote = Ui.dim("");
+	private final Ui.Button copyAddress = Ui.primary("Copy address").size(170, 34);
 	private int renderedLines = -1;
 
 	public ServersPage(App app) {
@@ -44,7 +47,7 @@ public final class ServersPage extends Page {
 		column.add(Ui.gap(16));
 		column.add(consoleCard());
 		column.add(Ui.gap(16));
-		column.add(friendsCard());
+		column.add(shareCard());
 		column.add(Box.createVerticalGlue());
 
 		body(Ui.scroll(column));
@@ -100,37 +103,51 @@ public final class ServersPage extends Page {
 		return card;
 	}
 
-	private JPanel friendsCard() {
-		Ui.Card card = new Ui.Card("Friends outside your network");
+	/** The one thing a friend needs: an address they can type into Minecraft's Add Server box. */
+	private JPanel shareCard() {
+		Ui.Card card = new Ui.Card("Give this to your friends");
 
-		card.body().add(Ui.dim("On the same Wi-Fi they use the address above. From anywhere else the"));
-		card.body().add(Ui.gap(3));
-		card.body().add(Ui.dim("server needs to be reachable, and there are two free ways to do it."));
+		shareAddress.setAlignmentX(LEFT_ALIGNMENT);
+		card.body().add(shareAddress);
+		card.body().add(Ui.gap(6));
+		shareNote.setAlignmentX(LEFT_ALIGNMENT);
+		shareNote.setMaximumSize(new Dimension(760, 46));
+		card.body().add(shareNote);
 		card.body().add(Ui.gap(12));
 
-		card.body().add(Ui.caps("A tunnel (free, no account for the basics)"));
-		card.body().add(Ui.gap(4));
-		card.body().add(Ui.dim("playit.gg gives this PC a public address without opening ports."));
-		card.body().add(Ui.gap(3));
-		card.body().add(Ui.dim("Leave the launcher open while friends play — the server lives here."));
-		card.body().add(Ui.gap(8));
+		JPanel row = Ui.row();
+		copyAddress.onClick(button -> copyPublicAddress());
+		row.add(copyAddress);
+		row.add(Ui.hgap(10));
+		row.add(Ui.secondary("Open playit.gg").size(170, 34).onClick(button -> open("https://playit.gg/")));
+		row.add(Box.createHorizontalGlue());
+		row.setAlignmentX(LEFT_ALIGNMENT);
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+		card.body().add(row);
+		card.body().add(Ui.gap(12));
 
-		JPanel tunnelRow = Ui.row();
-		tunnelRow.add(Ui.secondary("Open playit.gg").size(180, 34).onClick(button -> open("https://playit.gg/")));
-		tunnelRow.add(Box.createHorizontalGlue());
-		tunnelRow.setAlignmentX(LEFT_ALIGNMENT);
-		tunnelRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
-		card.body().add(tunnelRow);
-		card.body().add(Ui.gap(14));
-
-		card.body().add(Ui.caps("A hosted free tier"));
-		card.body().add(Ui.gap(4));
-		card.body().add(Ui.dim("Aternos, Minehut and Falixnodes host for free but sleep when empty,"));
+		card.body().add(Ui.dim("In Minecraft: Multiplayer → Add Server → paste the address → Join."));
 		card.body().add(Ui.gap(3));
-		card.body().add(Ui.dim("queue you at busy times, and only exist inside their own website —"));
+		card.body().add(Ui.dim("The launcher opens the port on your router when the server starts,"));
 		card.body().add(Ui.gap(3));
-		card.body().add(Ui.dim("none of them offers an API a launcher could create a server with."));
+		card.body().add(Ui.dim("and closes it again when you stop, so nothing is left open."));
 		return card;
+	}
+
+	private void copyPublicAddress() {
+		String address = app.server.publicAddress();
+
+		if (address.isBlank()) {
+			address = app.server.lanAddress();
+		}
+
+		try {
+			java.awt.Toolkit.getDefaultToolkit().getSystemClipboard()
+				.setContents(new java.awt.datatransfer.StringSelection(address), null);
+			app.status("Copied " + address);
+		} catch (Exception e) {
+			app.status("Could not copy: " + e.getMessage());
+		}
 	}
 
 	private void open(String url) {
@@ -217,9 +234,33 @@ public final class ServersPage extends Page {
 			status.setText("Not running. It costs nothing to start, and nothing stays on when you stop.");
 		}
 
+		refreshShareCard(server);
+
 		refreshLive();
 		revalidate();
 		repaint();
+	}
+
+	private void refreshShareCard(ServerManager server) {
+		String publicAddress = server.publicAddress();
+
+		if (!publicAddress.isBlank()) {
+			shareAddress.setText(publicAddress);
+			shareAddress.setForeground(Theme.GOOD);
+			shareNote.setForeground(Theme.TEXT_DIM);
+			shareNote.setText("Anyone, anywhere. " + server.mapping().message());
+			copyAddress.setEnabled(true);
+			return;
+		}
+
+		shareAddress.setText(server.isRunning() ? "Only on your network for now" : "Start the server first");
+		shareAddress.setForeground(server.isRunning() ? Theme.WARN : Theme.TEXT_DIM);
+		shareNote.setForeground(Theme.TEXT_DIM);
+		shareNote.setText(server.isRunning()
+			? "The router did not open the port: " + server.mapping().message()
+				+ " Friends on the same Wi-Fi can still use " + server.lanAddress() + "."
+			: "Friends on the same Wi-Fi use " + server.lanAddress() + " once it is running.");
+		copyAddress.setEnabled(true);
 	}
 
 	/** Redraws the console only when the server actually said something new. */

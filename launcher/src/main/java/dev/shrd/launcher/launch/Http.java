@@ -160,6 +160,12 @@ public final class Http {
 		return post(url, json, "application/json", headers);
 	}
 
+	/** SOAP, for the router's port-mapping service: it wants both the action header and XML. */
+	public static Reply postXml(String url, String xml, String soapAction) throws IOException {
+		return post(url, xml, "text/xml; charset=\"utf-8\"",
+			java.util.Map.of("SOAPAction", "\"" + soapAction + "\""));
+	}
+
 	private static Reply post(String url, String body, String contentType, java.util.Map<String, String> headers) throws IOException {
 		HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
 			.timeout(Duration.ofMinutes(1))

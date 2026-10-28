@@ -574,10 +574,26 @@ Xbox Live → XSTS → Minecraft → profile steps are code that has never carri
 The page renders with the version, both addresses, the account mode, the folder, Start and the
 console (`docs/screenshots/launcher-servers.png`).
 
-Not verified: **no second player joined.** The server accepted its own startup and shutdown, but
-nobody connected from the game, so the LAN address, the tunnel advice and a real join are untested
-end to end. `online-mode=false` is deliberate for an offline account and is what the server's own
-red warning in the log is about.
+Then the public address, which is what makes a friend's *Add Server* work:
+
+| Step | Result |
+|---|---|
+| router discovery | SSDP found the gateway and its `WANIPConnection:1` service |
+| port mapping | `AddPortMapping` accepted; the launcher printed `Open: friends can join at 120.88.x.x:25565` |
+| the public address, while running | TCP connect to `120.88.x.x:25565` succeeded from off-process, and to `192.168.1.201:25565` too |
+| after stop | both the mapping and the listener are gone: TCP to the public address **failed**, port 25565 closed |
+
+One bug this caught: the first attempt was refused with a fault, because the SOAP action header was
+built with the service type's version stripped (`…WANIPConnection` instead of `…WANIPConnection:1`).
+The router answered correctly and the client asked wrongly; the header now carries the advertised
+type verbatim, and the refusal message names the UPnP code instead of a bare HTTP 500.
+
+Not verified: **no second player joined.** The server started, a TCP connection reached it on the
+public address, and it stopped cleanly, but nobody connected through the game client, so a real join
+(and the skin/handshake behind it) is untested. The public address is also only as good as the
+router: UPnP off, or an ISP using CGNAT, and the page says so and points at a tunnel instead.
+`online-mode=false` is deliberate for an offline account and is what the server's own red warning in
+the log is about — with a Microsoft account it is `true`.
 
 ## 5. Mock-up test harness in the repo
 
