@@ -41,7 +41,20 @@ public final class LauncherFrame extends JFrame {
 
 	private final App app;
 	private final CardLayout cards = new CardLayout();
-	private final JPanel content = new JPanel(cards);
+	/**
+	 * The page area. It paints the window colour and the client's plus-sign texture itself, so every
+	 * page shares one backdrop instead of each one having to remember to draw it.
+	 */
+	private final JPanel content = new JPanel(cards) {
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			g.setColor(Theme.WINDOW);
+			g.fillRect(0, 0, getWidth(), getHeight());
+			Ui.hatch(g, getWidth(), getHeight());
+			g.dispose();
+		}
+	};
 	private final JPanel root = new Backdrop();
 	private final Map<String, Page> pages = new LinkedHashMap<>();
 	private final Map<String, RailItem> railItems = new LinkedHashMap<>();
@@ -289,7 +302,8 @@ public final class LauncherFrame extends JFrame {
 	}
 
 	private JComponent contentArea() {
-		content.setOpaque(false);
+		content.setOpaque(true);
+		content.setBackground(Theme.WINDOW);
 		pages.put("home", new HomePage(app));
 		pages.put("instances", new InstancesPage(app));
 		pages.put("mods", new ModsPage(app));

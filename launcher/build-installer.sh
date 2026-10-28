@@ -72,6 +72,17 @@ section "build the launcher and the mod ($VERSION)"
 echo "launcher jar: $(wc -c < "$LAUNCHER_JAR") bytes"
 echo "mod jar:      $(wc -c < "$MOD_JAR") bytes"
 
+if [ "${SHRD_SIGN:-1}" = "1" ]; then
+	section "code signature (jars)"
+	# Signed here rather than at the end, because jpackage copies these two into the app image: sign
+	# them after packaging and the copies inside the installer would still be unsigned. A self-signed
+	# certificate is generated on the first run; a bought one is used when SHRD_PFX is set.
+	bash "$ROOT/launcher/sign-builds.sh" "$LAUNCHER_JAR" "$MOD_JAR"
+else
+	echo
+echo "code signing skipped (SHRD_SIGN=0)"
+fi
+
 section "application icon"
 (cd "$ROOT" && "$JAVA" tools/make-icon.java)
 echo "icon: $(wc -c < "$ROOT/launcher/icon.ico") bytes"
@@ -156,6 +167,26 @@ if wants exe; then
 	# it can install the MSI for the user instead of asking them to right-click and choose Install.
 	"$JAVA_HOME/bin/jpackage" --type exe "${INSTALLER_ARGS[@]}"
 	ls -la "$OUT/$NAME-$VERSION.exe" | awk '{ print "exe: " $9 " (" $5 " bytes)" }'
+fi
+
+if [ "${SHRD_SIGN:-1}" = "1" ]; then
+	section "code signature (installers)"
+	# Signed before the zip is written, so the portable download carries a signed exe too. Signing
+	# never changes what the code does — it is about Windows being able to name the publisher.
+	SIGN_FILES=()
+
+	for candidate in "$OUT/$NAME-$VERSION.exe" "$OUT/$NAME-$VERSION.msi" "$APP/$NAME.exe"; do
+		[ -f "$candidate" ] && SIGN_FILES+=("$candidate")
+	done
+
+	if [ ${#SIGN_FILES[@]} -gt 0 ]; then
+		bash "$ROOT/launcher/sign-builds.sh" "${SIGN_FILES[@]}"
+	else
+		echo "nothing to sign in this run"
+	fi
+else
+	echo
+echo "code signing skipped (SHRD_SIGN=0)"
 fi
 
 if wants portable; then

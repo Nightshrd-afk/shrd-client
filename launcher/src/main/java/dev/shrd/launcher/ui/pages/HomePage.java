@@ -2,7 +2,6 @@ package dev.shrd.launcher.ui.pages;
 
 import dev.shrd.launcher.Account;
 import dev.shrd.launcher.Instance;
-import dev.shrd.launcher.ShrdPaths;
 import dev.shrd.launcher.ui.App;
 import dev.shrd.launcher.ui.Icons;
 import dev.shrd.launcher.ui.Page;
@@ -18,14 +17,16 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
+import javax.swing.border.EmptyBorder;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.FontMetrics;
 import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.event.MouseAdapter;
@@ -33,17 +34,19 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * The home screen: the player's own skin over a banner you can change, the account chip, and the
- * profiles you last played — each with its own Play button, so launching never means hunting for a
- * selector first.
+ * The home screen, laid out like a profile page rather than a settings form: one wide banner with
+ * the player's own skin on it, the account chip along the bottom, then the profiles you last played,
+ * each with its own Play button.
+ * <p>
+ * The banner carries three small pieces of chrome of its own — the name plate that opens the Instances
+ * page, a card for the bundled client, and the button that jumps to Customisation — so the things a
+ * player reaches for most are one click from the page they land on.
  */
 public final class HomePage extends Page {
 
@@ -52,7 +55,10 @@ public final class HomePage extends Page {
 
 	// Declared before the hero, which puts them on itself while it is being constructed.
 	private final AccountChip accountChip = new AccountChip();
-	private final Ui.Button updatePill = Ui.primary("Update available").size(170, 34);
+	private final Ui.Button updatePill = Ui.primary("Update available").size(178, 36);
+	private final NamePlate namePlate = new NamePlate();
+	private final ClientCard clientCard = new ClientCard();
+	private final Ui.Button customise = Ui.secondary("").size(40, 40);
 	private final Hero hero = new Hero();
 	private final JPanel profiles = Ui.column();
 	private String skinKey = "";
@@ -62,9 +68,9 @@ public final class HomePage extends Page {
 
 		JPanel column = Ui.column();
 		column.add(hero);
-		column.add(Ui.gap(18));
+		column.add(Ui.gap(20));
 		column.add(sectionHeader());
-		column.add(Ui.gap(10));
+		column.add(Ui.gap(12));
 		column.add(profiles);
 		column.add(Box.createVerticalGlue());
 
@@ -72,6 +78,10 @@ public final class HomePage extends Page {
 		body().add(bottomBar(), BorderLayout.SOUTH);
 
 		updatePill.onClick(button -> app.updateNow());
+		customise.withGlyph(Icons::palette);
+		customise.setToolTipText("Change the launcher's colour and background");
+		customise.onClick(button -> app.showPage("customise"));
+
 		app.onStage((stage, detail) -> refreshStage());
 		app.onRefresh(this::reload);
 	}
@@ -79,19 +89,22 @@ public final class HomePage extends Page {
 	private JComponent sectionHeader() {
 		JPanel row = Ui.row(new BorderLayout(12, 0));
 		row.add(Ui.heading("Last played profiles"), BorderLayout.WEST);
+		row.add(new EditionToggle(), BorderLayout.EAST);
 		row.setAlignmentX(LEFT_ALIGNMENT);
-		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
 		return row;
 	}
 
 	private JPanel bottomBar() {
 		JPanel bar = Ui.row();
-		bar.setBorder(new javax.swing.border.EmptyBorder(14, 0, 0, 0));
-		Ui.Button manage = Ui.primary("Manage all profiles").size(320, 42).withGlyph(Icons::instances);
+		bar.setBorder(new EmptyBorder(16, 0, 0, 0));
+
+		Ui.Button manage = Ui.primary("Manage all profiles").size(360, 46).withGlyph(Icons::instances);
 		manage.onClick(button -> app.showPage("instances"));
 		bar.add(Ui.fill(manage));
 		bar.add(Ui.hgap(12));
-		Ui.Button mods = Ui.secondary("Add mods").size(220, 42).withGlyph(Icons::mods);
+
+		Ui.Button mods = Ui.secondary("Add mods").size(260, 46).withGlyph(Icons::mods);
 		mods.onClick(button -> app.showPage("mods"));
 		bar.add(mods);
 		return bar;
@@ -102,22 +115,28 @@ public final class HomePage extends Page {
 		Ui.Row row = new Ui.Row();
 		row.hoverable();
 		row.setSelected(active);
-		row.setLayout(new BorderLayout(14, 0));
+		row.setLayout(new BorderLayout(16, 0));
 
-		row.add(new IconTile(), BorderLayout.WEST);
+		row.add(new IconTile(58), BorderLayout.WEST);
 
 		JPanel titles = Ui.column();
-		titles.add(Ui.text(instance.name));
-		titles.add(Ui.gap(3));
+		JLabel name = new JLabel(instance.name);
+		name.setFont(Theme.bold(16));
+		name.setForeground(Theme.TEXT);
+		name.setAlignmentX(Component.LEFT_ALIGNMENT);
+		titles.add(name);
+		titles.add(Ui.gap(4));
+
 		String loader = instance.isFabric()
-			? "Fabric " + instance.minecraftVersion + (instance.loaderVersion.isBlank() ? "" : " · loader " + instance.loaderVersion)
+			? "Fabric " + instance.minecraftVersion + (instance.loaderVersion.isBlank() ? "" : "  ·  loader " + instance.loaderVersion)
 			: "Vanilla " + instance.minecraftVersion;
-		titles.add(Ui.dim(loader + "  ·  " + (instance.lastPlayed == 0 ? "never played" : WHEN.format(Instant.ofEpochMilli(instance.lastPlayed)))));
+		titles.add(Ui.dim(loader + "  ·  "
+			+ (instance.lastPlayed == 0 ? "never played" : WHEN.format(Instant.ofEpochMilli(instance.lastPlayed)))));
 		row.add(titles, BorderLayout.CENTER);
 
 		JPanel controls = Ui.row();
 		boolean running = app.isRunning() && active;
-		Ui.Button play = Ui.primary(running ? "Stop" : "Play").size(104, 36);
+		Ui.Button play = Ui.primary(running ? "Stop" : "Play").size(112, 40);
 		play.withGlyph(running ? Icons::square : Icons::play);
 		play.onClick(button -> {
 			if (!instance.name.equalsIgnoreCase(app.config.activeInstance)) {
@@ -130,7 +149,8 @@ public final class HomePage extends Page {
 		});
 		controls.add(play);
 		controls.add(Ui.hgap(8));
-		Ui.Button gear = Ui.secondary("").size(36, 36);
+
+		Ui.Button gear = Ui.secondary("").size(40, 40);
 		gear.withGlyph(Icons::gear);
 		gear.setToolTipText("Instance settings");
 		gear.onClick(button -> {
@@ -141,15 +161,52 @@ public final class HomePage extends Page {
 		controls.add(gear);
 		row.add(controls, BorderLayout.EAST);
 		row.setAlignmentX(LEFT_ALIGNMENT);
-		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 74));
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 88));
 		return row;
 	}
 
-	/** The shrd gem on a rounded tile, so a profile row reads as a profile and not a text line. */
+	/** Java now, Bedrock never: shown the way the launcher's neighbours do, with the half it does not
+	 * support greyed rather than hidden, so the limit is visible instead of surprising. */
+	private final class EditionToggle extends JComponent {
+		private EditionToggle() {
+			setPreferredSize(new Dimension(206, 30));
+			setMaximumSize(new Dimension(206, 30));
+			setToolTipText("Java Edition only — Shrd Launcher does not run Bedrock Edition");
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			Ui.hints(g);
+			g.setColor(Theme.TRACK);
+			Ui.roundRect(g, 0, 0, getWidth(), getHeight(), 15);
+			g.setColor(Theme.PANEL_OUTLINE);
+			g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 15, 15);
+
+			int half = getWidth() / 2;
+
+			g.setColor(Theme.ACCENT);
+			Ui.roundRect(g, 3, 3, half - 4, getHeight() - 6, 12);
+			paintSegment(g, "Java", half - 4, Theme.ON_ACCENT, Theme.bold(12));
+			paintSegment(g, "Bedrock", getWidth() - half - 4, Theme.TEXT_DISABLED, Theme.font(12));
+			g.dispose();
+		}
+
+		private void paintSegment(Graphics2D g, String text, int width, Color color, java.awt.Font font) {
+			g.setFont(font);
+			g.setColor(color);
+			int offset = text.equals("Java") ? 3 : getWidth() / 2 + 2;
+			int x = offset + (width - g.getFontMetrics().stringWidth(text)) / 2;
+			g.drawString(text, x, (getHeight() - g.getFontMetrics().getHeight()) / 2 + g.getFontMetrics().getAscent());
+		}
+	}
+
+	/** A rounded tile with the shrd gem on it, so a profile row reads as a profile. */
 	private static final class IconTile extends JComponent {
-		private IconTile() {
-			setPreferredSize(new Dimension(52, 52));
-			setMaximumSize(new Dimension(52, 52));
+		private IconTile(int size) {
+			setPreferredSize(new Dimension(size, size));
+			setMaximumSize(new Dimension(size, size));
+			setMinimumSize(new Dimension(size, size));
 		}
 
 		@Override
@@ -157,13 +214,13 @@ public final class HomePage extends Page {
 			Graphics2D g = (Graphics2D) graphics.create();
 			Ui.hints(g);
 			g.setPaint(new GradientPaint(0, 0, Theme.PANEL_HEADER, getWidth(), getHeight(), Theme.TRACK));
-			Ui.roundRect(g, 0, 0, getWidth(), getHeight(), 10);
-			g.setColor(Theme.alpha(Theme.ACCENT, 90));
-			g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+			Ui.roundRect(g, 0, 0, getWidth(), getHeight(), 12);
+			g.setColor(Theme.alpha(Theme.ACCENT, 110));
+			g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
 
 			if (GEM != null) {
 				g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-				g.drawImage(GEM, 9, 9, getWidth() - 18, getHeight() - 18, null);
+				g.drawImage(GEM, 10, 10, getWidth() - 20, getHeight() - 20, null);
 			}
 
 			g.dispose();
@@ -229,19 +286,22 @@ public final class HomePage extends Page {
 		hero.repaint();
 	}
 
-	// ------------------------------------------------------------------ hero
+	// ------------------------------------------------------------------ the banner
 
-	/** The banner: background image or gradient, the player's figure, and the account chip. */
+	/** The banner: background image or gradient, the player's figure, and the page's own chrome. */
 	private final class Hero extends JPanel {
 		private BufferedImage skin;
 
 		private Hero() {
 			setLayout(null);
 			setAlignmentX(LEFT_ALIGNMENT);
-			setPreferredSize(new Dimension(10, 296));
-			setMaximumSize(new Dimension(Integer.MAX_VALUE, 296));
+			setPreferredSize(new Dimension(10, 320));
+			setMaximumSize(new Dimension(Integer.MAX_VALUE, 320));
+			add(namePlate);
+			add(clientCard);
 			add(accountChip);
 			add(updatePill);
+			add(customise);
 			updatePill.setVisible(false);
 		}
 
@@ -250,10 +310,22 @@ public final class HomePage extends Page {
 			repaint();
 		}
 
+		/** Where the figure stands: right of centre, clear of the corners the chrome sits in. */
+		private Rectangle figureBox() {
+			int height = (int) (getHeight() * 0.76);
+			double unit = height / 32.0;
+			int width = (int) Math.round(16 * unit);
+			return new Rectangle(getWidth() - width - 92, getHeight() - height - 16, width, height);
+		}
+
 		@Override
 		public void doLayout() {
-			accountChip.setBounds(22, getHeight() - 58, 250, 42);
-			updatePill.setBounds(getWidth() - 190, 18, 170, 34);
+			Rectangle figure = figureBox();
+			namePlate.setBounds(Math.max(24, figure.x - 220), 34, 200, 54);
+			clientCard.setBounds(24, getHeight() - 158, 216, 128);
+			accountChip.setBounds(Math.max(268, (getWidth() - 254) / 2), getHeight() - 58, 254, 42);
+			updatePill.setBounds(getWidth() - 202, 24, 178, 36);
+			customise.setBounds(getWidth() - 60, getHeight() - 54, 40, 40);
 		}
 
 		@Override
@@ -262,7 +334,7 @@ public final class HomePage extends Page {
 			Ui.hints(g);
 			int width = getWidth();
 			int height = getHeight();
-			Shape shape = new RoundRectangle2D.Double(0, 0, width, height, 16, 16);
+			Shape shape = new RoundRectangle2D.Double(0, 0, width, height, 18, 18);
 			g.clip(shape);
 
 			BufferedImage background = background();
@@ -279,54 +351,33 @@ public final class HomePage extends Page {
 					new Color[] { new Color(8, 4, 16, 225), new Color(8, 4, 16, 140), new Color(8, 4, 16, 40) }));
 				g.fillRect(0, 0, width, height);
 			} else {
-				// Dark violet glass rather than a bright wash: the figure has to stay the bright thing.
-				g.setPaint(new GradientPaint(0, 0, new Color(0x2A1040), width, height, Theme.WINDOW));
+				// Violet glass rather than a flat wash: the accent is mixed into the gradient, so a
+				// crimson or emerald theme gets its own banner instead of the purple one.
+				g.setPaint(new GradientPaint(0, 0, Theme.mix(Theme.ACCENT_DEEP, new Color(0x1B0A2E), 0.42f), width, height, Theme.WINDOW));
 				g.fillRect(0, 0, width, height);
-				g.setPaint(new java.awt.RadialGradientPaint(width * 0.82f, height * 0.42f, Math.max(width, height) * 0.48f,
-					new float[] { 0f, 1f }, new Color[] { Theme.alpha(Theme.ACCENT_DEEP, 120), new Color(0, 0, 0, 0) }));
+				// A broad highlight from the left, so the side the chrome sits on is not a dead corner.
+				g.setPaint(new java.awt.RadialGradientPaint(width * 0.3f, height * 0.3f, width * 0.6f,
+					new float[] { 0f, 1f }, new Color[] { Theme.alpha(Theme.ACCENT, 78), new Color(0, 0, 0, 0) }));
+				g.fillRect(0, 0, width, height);
+				g.setPaint(new java.awt.RadialGradientPaint(width * 0.78f, height * 0.45f, Math.max(width, height) * 0.45f,
+					new float[] { 0f, 1f }, new Color[] { Theme.alpha(Theme.ACCENT_ALT, 95), new Color(0, 0, 0, 0) }));
 				g.fillRect(0, 0, width, height);
 			}
 
-			// A dark foot, so the chip and text stay readable on any background image.
-			g.setPaint(new GradientPaint(0, height * 0.45f, new Color(0, 0, 0, 0), 0, height, new Color(6, 3, 12, 220)));
+			// The same plus-sign texture the pages sit on, at a lower strength: it ties the banner to
+			// the window without competing with the artwork.
+			Ui.hatch(g, 0, 0, width, height, 0.05f);
+
+			// A dark foot, so the chip and the card stay readable on any background image.
+			g.setPaint(new GradientPaint(0, height * 0.45f, new Color(0, 0, 0, 0), 0, height, new Color(6, 3, 12, 225)));
 			g.fillRect(0, (int) (height * 0.45f), width, height);
 
-			// Faint speckle, the same texture the client's menus use.
-			g.setColor(new Color(255, 255, 255, 12));
+			Rectangle figure = figureBox();
+			g.setPaint(new java.awt.RadialGradientPaint(figure.x + figure.width / 2f, figure.y + figure.height * 0.55f, figure.width,
+				new float[] { 0f, 1f }, new Color[] { Theme.alpha(Theme.ACCENT_ALT, 110), new Color(0, 0, 0, 0) }));
+			g.fillOval(figure.x - figure.width / 2, figure.y - 10, figure.width * 2, figure.height);
 
-			for (int x = 18; x < width; x += 34) {
-				for (int y = 14; y < height; y += 34) {
-					g.fillRect(x, y, 2, 2);
-				}
-			}
-
-			int figureHeight = (int) (height * 0.78);
-			double unit = figureHeight / 32.0;
-			int figureWidth = (int) Math.round(16 * unit);
-			int figureX = width - figureWidth - 74;
-			int figureY = height - figureHeight - 18;
-
-			g.setPaint(new java.awt.RadialGradientPaint(figureX + figureWidth / 2f, figureY + figureHeight * 0.55f, figureWidth,
-				new float[] { 0f, 1f }, new Color[] { Theme.alpha(Theme.ACCENT_ALT, 105), new Color(0, 0, 0, 0) }));
-			g.fillOval(figureX - figureWidth / 2, figureY - 10, figureWidth * 2, figureHeight);
-
-			PlayerSkin.paint(g, skin, figureX, figureY, figureHeight);
-
-			// The name sits next to the figure, the way a profile banner does.
-			g.setFont(Theme.bold(26));
-			FontMetrics metrics = g.getFontMetrics();
-			String name = app.config.activeAccount().name;
-			int nameWidth = metrics.stringWidth(name);
-			int nameX = Math.max(22, figureX - nameWidth - 26);
-			g.setColor(new Color(0, 0, 0, 120));
-			g.drawString(name, nameX + 2, figureY + 40);
-			g.setColor(Theme.TEXT);
-			g.drawString(name, nameX, figureY + 38);
-
-			g.setFont(Theme.font(12));
-			g.setColor(Theme.TEXT_DIM);
-			String status = app.isRunning() ? "in game" : (app.isBusy() ? "starting…" : "ready");
-			g.drawString(app.config.active().minecraftVersion + "  ·  " + status, nameX, figureY + 58);
+			PlayerSkin.paint(g, skin, figure.x, figure.y, figure.height);
 
 			g.setColor(Theme.alpha(Theme.ACCENT_ALT, 110));
 			g.draw(shape);
@@ -337,6 +388,114 @@ public final class HomePage extends Page {
 	/** The shared cache, so a photo is decoded once rather than on every repaint. */
 	private BufferedImage background() {
 		return dev.shrd.launcher.ui.Backgrounds.of(app.config.backgroundImage);
+	}
+
+	/** The player's name over the banner; clicking it opens the profiles it belongs to. */
+	private final class NamePlate extends JComponent {
+		private boolean hover;
+
+		private NamePlate() {
+			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+			setToolTipText("Open the Instances page");
+			addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseClicked(MouseEvent event) {
+					app.showPage("instances");
+				}
+
+				@Override
+				public void mouseEntered(MouseEvent event) {
+					hover = true;
+					repaint();
+				}
+
+				@Override
+				public void mouseExited(MouseEvent event) {
+					hover = false;
+					repaint();
+				}
+			});
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			Ui.hints(g);
+			g.setColor(new Color(9, 4, 18, hover ? 215 : 175));
+			Ui.roundRect(g, 0, 0, getWidth(), getHeight(), 12);
+			g.setColor(Theme.alpha(Theme.ACCENT_ALT, hover ? 210 : 130));
+			g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
+
+			g.setFont(Theme.bold(19));
+			g.setColor(Theme.TEXT);
+			g.drawString(Ui.elide(app.config.activeAccount().name, 15), 14, 26);
+
+			g.setFont(Theme.font(11));
+			g.setColor(hover ? Theme.TEXT : Theme.TEXT_ACCENT);
+			g.drawString("Go to profile", 14, 44);
+			g.drawString("→", 14 + g.getFontMetrics().stringWidth("Go to profile") + 5, 44);
+			g.dispose();
+		}
+	}
+
+	/** What the client is: the launcher ships it in every profile, and this card is the way there. */
+	private final class ClientCard extends JComponent {
+		private boolean hover;
+
+		private ClientCard() {
+			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+			setToolTipText("Shrd Client is installed into every profile you launch");
+			addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseClicked(MouseEvent event) {
+					app.showPage("mods");
+				}
+
+				@Override
+				public void mouseEntered(MouseEvent event) {
+					hover = true;
+					repaint();
+				}
+
+				@Override
+				public void mouseExited(MouseEvent event) {
+					hover = false;
+					repaint();
+				}
+			});
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			Ui.hints(g);
+			g.setColor(new Color(11, 5, 22, 225));
+			Ui.roundRect(g, 0, 0, getWidth(), getHeight(), 14);
+			g.setColor(Theme.alpha(Theme.ACCENT, hover ? 220 : 130));
+			g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
+
+			if (GEM != null) {
+				g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+				g.drawImage(GEM, 14, 14, 36, 36, null);
+			}
+
+			g.setFont(Theme.bold(15));
+			g.setColor(Theme.TEXT);
+			g.drawString("Shrd Client", 60, 30);
+
+			g.setFont(Theme.font(11));
+			g.setColor(Theme.TEXT_DIM);
+			g.drawString("v" + dev.shrd.launcher.Version.CURRENT + "  ·  in every profile", 60, 46);
+
+			g.setColor(Theme.alpha(Theme.ACCENT, 70));
+			g.drawLine(14, getHeight() - 34, getWidth() - 14, getHeight() - 34);
+
+			g.setFont(Theme.bold(10));
+			g.setColor(hover ? Theme.TEXT : Theme.TEXT_ACCENT);
+			g.drawString("MANAGE MODS", 14, getHeight() - 13);
+			g.drawString("→", 14 + g.getFontMetrics().stringWidth("MANAGE MODS") + 6, getHeight() - 13);
+			g.dispose();
+		}
 	}
 
 	/** The account pill: face, name, kind — and a menu of the other accounts on click. */
@@ -419,9 +578,9 @@ public final class HomePage extends Page {
 		protected void paintComponent(Graphics graphics) {
 			Graphics2D g = (Graphics2D) graphics.create();
 			Ui.hints(g);
-			g.setColor(new Color(12, 7, 22, hover ? 235 : 205));
+			g.setColor(new Color(12, 7, 22, hover ? 240 : 215));
 			Ui.roundRect(g, 0, 0, getWidth(), getHeight(), 21);
-			g.setColor(Theme.alpha(Theme.ACCENT_ALT, hover ? 200 : 120));
+			g.setColor(Theme.alpha(Theme.ACCENT_ALT, hover ? 210 : 130));
 			g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 21, 21);
 
 			int face = 28;

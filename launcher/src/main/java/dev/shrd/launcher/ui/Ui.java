@@ -59,6 +59,27 @@ public final class Ui {
 		g.fillRoundRect(x, y, width, height, radius, radius);
 	}
 
+	/**
+	 * The faint grid of plus signs the client's menus sit on. Drawn rather than tiled from an image,
+	 * so it stays crisp at any window size and follows the accent when the theme changes.
+	 */
+	public static void hatch(Graphics2D g, int width, int height) {
+		hatch(g, 0, 0, width, height, 0.045f);
+	}
+
+	public static void hatch(Graphics2D g, int x, int y, int width, int height, float opacity) {
+		g.setColor(new Color(Theme.TEXT.getRed(), Theme.TEXT.getGreen(), Theme.TEXT.getBlue(),
+			Math.max(0, Math.min(255, (int) (255 * opacity)))));
+		g.setStroke(new java.awt.BasicStroke(1f));
+
+		for (int cx = x + 14; cx < x + width; cx += 30) {
+			for (int cy = y + 12; cy < y + height; cy += 30) {
+				g.drawLine(cx - 3, cy, cx + 3, cy);
+				g.drawLine(cx, cy - 3, cx, cy + 3);
+			}
+		}
+	}
+
 	// ---------------------------------------------------------------- text
 
 	public static JLabel pageTitle(String text) {
