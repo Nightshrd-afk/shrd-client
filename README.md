@@ -64,8 +64,8 @@ Updates — the version, the manifest it checks, and one button to fetch a new b
 
 ### Downloading it
 
-**[Download Shrd Launcher 1.0.0](https://github.com/Nightshrd-afk/shrd-client/releases/latest)** —
-`Shrd Launcher-1.0.0.exe` to install it, or the portable zip to run it without installing. The
+**[Download Shrd Launcher 1.1.0](https://github.com/Nightshrd-afk/shrd-client/releases/latest)** —
+`Shrd Launcher-1.1.0.exe` to install it, or the portable zip to run it without installing. The
 release also carries the same installer as an `.msi` and the update manifest the launcher reads.
 
 `bash launcher/build-installer.sh` builds the whole release — a real Windows installer, the same
@@ -73,9 +73,9 @@ app as a portable zip, and the manifest the launcher updates itself from:
 
 ```bash
 bash launcher/build-installer.sh          # all of it; pass portable, msi or exe for just one
-# -> dist/Shrd Launcher-1.0.0.exe                 (37 MB) the installer, one file
-# -> dist/Shrd Launcher-1.0.0.msi                 (36 MB) the same installer as an MSI
-# -> dist/shrd-launcher-1.0.0-windows-x64.zip     (34 MB) portable, nothing to install
+# -> dist/Shrd Launcher-1.1.0.exe                 (37 MB) the installer, one file
+# -> dist/Shrd Launcher-1.1.0.msi                 (36 MB) the same installer as an MSI
+# -> dist/shrd-launcher-1.1.0-windows-x64.zip     (34 MB) portable, nothing to install
 # -> dist/shrd-launcher-latest.json               the update manifest
 ```
 
@@ -84,7 +84,7 @@ group to the Start Menu with a shortcut in it, and registers itself in **Apps & 
 uninstalls like anything else (`msiexec /x` works too). Installing asks for administrator rights —
 that is the cost of Program Files — and the package carries its own Java 25 runtime, so the launcher
 itself runs with nothing else installed. Prefer the `.exe` (one file, a wizard); the `.msi` is the
-same thing for silent installs and group policy (`msiexec /i "Shrd Launcher-1.0.0.msi" /qn`).
+same thing for silent installs and group policy (`msiexec /i "Shrd Launcher-1.1.0.msi" /qn`).
 
 The **game** is a separate matter: Minecraft 26.2 runs on a Java 25 of its own, and the launcher
 does not download one. If the machine has none, Home says so (`No Java found`) and
@@ -109,8 +109,8 @@ What is in it:
 |---|---|
 | `Shrd Launcher.exe` | the app; the shrd gem is its icon in Explorer, the taskbar and Apps & features |
 | `runtime/` | a trimmed Java 25 runtime (~50 MB), so Java does not have to be installed |
-| `app/shrd-launcher-1.0.0.jar` | the launcher itself, with Gson inside |
-| `app/mods/shrd-client-1.0.0.jar` | the client mod, so **Install Shrd Client** works with no build tools |
+| `app/shrd-launcher-1.1.0.jar` | the launcher itself, with Gson inside |
+| `app/mods/shrd-client-1.1.0.jar` | the client mod, so **Install Shrd Client** works with no build tools |
 | `INSTALL.txt` | the three steps, plus where your files live (zip only) |
 
 ### Updating it
@@ -131,12 +131,12 @@ The manifest is one small file:
 
 ```json
 {
-  "version": "1.0.0",
-  "file": "shrd-launcher-1.0.0-windows-x64.zip",
+  "version": "1.1.0",
+  "file": "shrd-launcher-1.1.0-windows-x64.zip",
   "url": "",
   "sha256": "68734e45…",
   "size": 35209788,
-  "notes": "Shrd Launcher 1.0.0"
+  "notes": "Shrd Launcher 1.1.0"
 }
 ```
 
@@ -151,7 +151,7 @@ in a writable folder updates with no prompt at all.
 Testing an update without publishing anything:
 
 ```bash
-SHRD_VERSION=1.1.0 SHRD_OUT=dist-test bash launcher/build-installer.sh portable
+SHRD_VERSION=1.2.0 SHRD_OUT=dist-test bash launcher/build-installer.sh portable
 java tools/update-server.java dist-test 8791
 "dist/Shrd Launcher/Shrd Launcher.exe" --manifest http://127.0.0.1:8791/shrd-launcher-latest.json --check-update
 ```
@@ -186,12 +186,12 @@ it. Bumping `version` in `gradle.properties` is the whole release process: the t
 and the version the app reports all come from it.
 
 Two details the script handles for you, because both cost a failed release to learn: GitHub turns
-the spaces in `Shrd Launcher-1.0.0.exe` into dots (`Shrd.Launcher-1.0.0.exe`) in the download URL,
+the spaces in `Shrd Launcher-1.1.0.exe` into dots (`Shrd.Launcher-1.1.0.exe`) in the download URL,
 and re-publishing a version that already has a tag updates the release in place without moving the
 tag. So download URLs use the dotted name, and a real fix ships as a new version rather than a
 re-upload of the old one.
 
-The current release: https://github.com/Nightshrd-afk/shrd-client/releases/tag/v1.0.0
+The current release: https://github.com/Nightshrd-afk/shrd-client/releases/tag/v1.1.0
 
 ### What it does
 
@@ -224,7 +224,7 @@ project folder except the build output.
 ```bash
 cd launcher
 ../.toolchain/gradle-9.8.2/bin/gradle build      # or: gradle build
-java -jar build/libs/shrd-launcher-1.0.0.jar      # opens the launcher window
+java -jar build/libs/shrd-launcher-1.1.0.jar      # opens the launcher window
 ```
 
 That needs Java 21+ on the machine, which is why the packaged build above exists.
@@ -306,7 +306,7 @@ into an instance it owns, so nothing in `.minecraft` has to be touched.
 
 1. Install **Fabric Loader 0.20.1+** for **Minecraft 26.2** (the [Fabric installer](https://fabricmc.net/use/installer/) does this).
 2. Drop [Fabric API](https://modrinth.com/mod/fabric-api) `0.161.0+26.2` into `.minecraft/mods`.
-3. Drop `shrd-client-1.0.0.jar` into `.minecraft/mods`.
+3. Drop `shrd-client-1.1.0.jar` into `.minecraft/mods`.
 4. Launch the Fabric 26.2 profile. Java 25 is required — 26.2 ships a Java 25 runtime.
 
 ## Controls
@@ -396,7 +396,7 @@ HUD editor close, and `/shrd config save`.
 build.bat                # Windows, uses ./.toolchain or JAVA_HOME
 ```
 
-The output jar lands in `build/libs/shrd-client-1.0.0.jar`. `./gradlew runClient` launches a
+The output jar lands in `build/libs/shrd-client-1.1.0.jar`. `./gradlew runClient` launches a
 development client with the mod loaded, which is the fastest way to test a change.
 
 Requires **JDK 25** and **Gradle 9.8.2** (the wrapper handles Gradle). `build.bat` and
@@ -479,7 +479,7 @@ This client is checked against a real Minecraft, not just compiled:
 
 ```bash
 ./gradlew build          # compiles, remaps and packages the mod jar
-./gradlew runClient      # boots a dev client; log shows "Shrd Client v1.0.0 loaded — 32 modules"
+./gradlew runClient      # boots a dev client; log shows "Shrd Client v1.1.0 loaded — 32 modules"
 ./gradlew runGametest    # joins a world, screenshots the HUD/ClickGUI/HUD editor, then benchmarks FPS
 
 java tools/UiCheck.java run/screenshots/0000_shrd-hud.png        accent,text         30
@@ -516,7 +516,7 @@ find it, verify its SHA-256, swap itself and come back as 1.1.0 — including th
 manifest's hash is wrong and the update must be refused. The five launcher pages are rendered to PNG and asserted with `UiCheck` as well:
 
 ```bash
-java <jdk>/bin/java -jar launcher/build/libs/shrd-launcher-1.0.0.jar --shot home,docs/screenshots/launcher-home.png
+java <jdk>/bin/java -jar launcher/build/libs/shrd-launcher-1.1.0.jar --shot home,docs/screenshots/launcher-home.png
 java tools/UiCheck.java docs/screenshots/launcher-home.png accent,text 40
 ```
 
