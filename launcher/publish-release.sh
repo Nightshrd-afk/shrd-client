@@ -235,7 +235,11 @@ for installer in "Shrd Launcher-$VERSION.exe" "Shrd Launcher-$VERSION.msi"; do
 done
 
 section "the launcher's own update check, against the live release"
-"$EXE" --check-update --manifest "$MANIFEST_URL" | sed 's/^/  /'
+# Captured rather than piped: piping into sed would report sed's exit status and hide a failed check.
+CHECK_OUT="$("$EXE" --check-update --manifest "$MANIFEST_URL")" || fail "the launcher could not read the live manifest at $MANIFEST_URL"
+printf '%s\n' "$CHECK_OUT" | sed 's/^/  /'
+printf '%s\n' "$CHECK_OUT" | grep -q 'SHRD-UPDATE-UP-TO-DATE' \
+	|| fail "the launcher does not recognise the release it just published as its own version"
 
 echo
 echo "Shrd Launcher $VERSION is published at $RELEASE_URL"
