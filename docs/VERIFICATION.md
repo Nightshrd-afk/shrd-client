@@ -698,6 +698,23 @@ drew the photo at full strength, which made page text fight the image — it is 
 path and the presets were), and no theme was checked on the sign-in window, which inherits the same
 palette by construction.
 
+### 4b.16 1.2.0 published, and the installed 1.1.0 sees it
+
+`bash launcher/publish-release.sh 1.2.0` ran end to end and exited 0:
+
+| Check | Result |
+|---|---|
+| manifest | `version=1.2.0`, `sha256=d5ad928f…`, 35,318,030 bytes |
+| zip fetched back over HTTPS | SHA-256 identical to the local build |
+| `Shrd.Launcher-1.2.0.exe` / `.msi` | HTTP 200, 37,279,744 / 36,663,060 bytes |
+| the built launcher's own check | `current=1.2.0 published=1.2.0` → `UP-TO-DATE` |
+| release | not a draft, not a prerelease, `/releases/latest` redirects to `v1.2.0` |
+| the copy installed in Program Files (still 1.1.0) | `SHRD-UPDATE-AVAILABLE version=1.2.0` with the published URL and the same hash |
+
+That last row is the point of the release existing: the 1.1.0 install from 4b.13, untouched, now finds
+1.2.0 through the manifest it already points at. Applying it was left to the app's own update prompt,
+because the swap writes into `Program Files` and raises a UAC prompt.
+
 ## 5. Mock-up test harness in the repo
 
 - `tools/UiCheck.java` — colour assertions on a screenshot (exits non-zero on failure).
