@@ -1,0 +1,17 @@
+.gradle/
+build/
+run/
+out/
+
+# Launcher build output and the packaged download
+dist/
+launcher/build/
+
+.idea/
+*.iml
+.vscode/
+
+# Local JDK/Gradle toolchain used by build.bat and run-client.bat
+.toolchain/
+
+*.log

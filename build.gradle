@@ -1,0 +1,65 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+base {
+	archivesName = project.archives_base_name
+}
+
+loom {
+	mods {
+		"shrdclient" {
+			sourceSet sourceSets.main
+		}
+	}
+
+	runs {
+		// A separate run configuration so the normal dev client is untouched:
+		// `gradle runGametest` joins a world, screenshots the HUD, ClickGUI and HUD editor,
+		// then exits. Verify the captures with tools/UiCheck.java.
+		gametest {
+			client()
+			name = "Shrd Client Gametest"
+			property "fabric.client.gametest", "shrdclient"
+		}
+	}
+}
+
+dependencies {
+	// To change the versions see the gradle.properties file
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Fabric API. Technically optional, but Shrd Client builds its events and
+	// rendering hooks on top of it.
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+	it.options.encoding = 'UTF-8'
+}
+
+java {
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+	def projectName = project.name
+
+	from("LICENSE") {
+		rename { "${it}_$projectName" }
+	}
+}

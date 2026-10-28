@@ -1,0 +1,37 @@
+{
+	"schemaVersion": 1,
+	"id": "shrdclient",
+	"version": "${version}",
+	"name": "Shrd Client",
+	"description": "Shrd Client — a Dawn-style, server-safe client mod for Minecraft. HUD overlays, PvP information, waypoints, zoom and other quality-of-life tools in a single draggable ClickGUI.",
+	"authors": [
+		"Shrd Client"
+	],
+	"contact": {
+		"homepage": "https://modrinth.com/mod/shrd-client",
+		"sources": "https://github.com/Nightshrd-afk/shrd-client"
+	},
+	"license": "MIT",
+	"icon": "assets/shrdclient/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"dev.shrd.client.ShrdClient"
+		],
+		"fabric-client-gametest": [
+			"dev.shrd.client.gametest.ShrdClientGameTest"
+		]
+	},
+	"mixins": [
+		{
+			"config": "shrdclient.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

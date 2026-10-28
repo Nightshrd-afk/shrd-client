@@ -1,0 +1,66 @@
+plugins {
+	id 'java'
+	id 'application'
+}
+
+group = 'dev.shrd'
+// A release build passes -Pversion=1.1.0 through the packaging script; a plain development build
+// falls back to 1.0.0. Gradle reports "unspecified" when nothing has set the version.
+version = project.version.toString() == 'unspecified' ? '1.0.0' : project.version
+
+base {
+	archivesName = 'shrd-launcher'
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// The launcher parses Mojang's and Fabric's version JSON, so it needs a real JSON reader.
+	implementation 'com.google.code.gson:gson:2.11.0'
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+	it.options.encoding = 'UTF-8'
+}
+
+application {
+	mainClass = 'dev.shrd.launcher.ShrdLauncher'
+}
+
+// The updater compares the running build against the published manifest, so the jar has to carry
+// the real version rather than the ${version} placeholder in the resource.
+processResources {
+	inputs.property 'version', project.version
+
+	filesMatching('version.txt') {
+		expand 'version': project.version
+	}
+}
+
+// The launcher is a desktop app people double-click, so it ships as one runnable jar with Gson inside.
+jar {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+	manifest {
+		attributes 'Main-Class': application.mainClass.get()
+	}
+
+	from({
+		configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+	}) {
+		exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
+	}
+}
+
+tasks.named('run') {
+	// `gradle run --args="--shot home build/shot.png"` is the usual development loop.
+	standardInput = System.in
+}
