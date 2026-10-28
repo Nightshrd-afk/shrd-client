@@ -49,9 +49,9 @@ public final class PlayerSkin {
 	 * Turn towards the viewer, in radians. Negative, so the front and the player's left side are
 	 * both visible: the pose every 3D skin preview uses, because a straight-on view hides the depth.
 	 */
-	private static final double YAW = Math.toRadians(-24);
+	private static final double YAW = Math.toRadians(-27);
 	/** Look down on the figure very slightly, so the top of the head catches the light. */
-	private static final double PITCH = Math.toRadians(7);
+	private static final double PITCH = Math.toRadians(4);
 	/** Render at this multiple and scale down: the cheap way to antialias a pixel texture. */
 	private static final int SUPERSAMPLE = 3;
 	private static final double SIDE_LIGHT = 0.78;
@@ -64,8 +64,19 @@ public final class PlayerSkin {
 	private PlayerSkin() {
 	}
 
+	/**
+	 * The figure an offline name gets. Drawn here rather than downloaded: an offline name does not
+	 * identify anybody, so asking a skin service for it returns whichever stranger happens to own
+	 * that name — which is how the launcher ended up showing a random player's skin.
+	 */
+	private static volatile BufferedImage DEFAULT_SKIN;
+
 	/** Memory-only lookup, safe on the event thread (no network, no disk). */
 	public static BufferedImage peek(Account account) {
+		if (!account.online()) {
+			return defaultSkin();
+		}
+
 		return MEMORY.get(key(account));
 	}
 
@@ -75,6 +86,10 @@ public final class PlayerSkin {
 
 		if (memory != null) {
 			return memory;
+		}
+
+		if (!account.online()) {
+			return defaultSkin();
 		}
 
 		Path file = cacheFile(account);
@@ -102,6 +117,11 @@ public final class PlayerSkin {
 
 		if (cached != null) {
 			return cached;
+		}
+
+		// An offline name has no skin to fetch: whatever is under that name belongs to someone else.
+		if (!account.online()) {
+			return defaultSkin();
 		}
 
 		String url = account.skinUrl != null && !account.skinUrl.isBlank()
@@ -141,6 +161,88 @@ public final class PlayerSkin {
 	private static Path cacheFile(Account account) {
 		String name = key(account).replaceAll("[^a-z0-9_-]", "_");
 		return ShrdPaths.skins().resolve(name + ".png");
+	}
+
+	/**
+	 * The default figure, drawn on the standard 64x64 sheet: brown hair, a teal shirt, blue trousers.
+	 * <p>
+	 * This is what an offline name wears. It is generated rather than shipped as an asset so it can
+	 * never be missing, and it is deliberately plain: the point is that it looks like a Minecraft
+	 * player and like nobody in particular.
+	 */
+	public static BufferedImage defaultSkin() {
+		BufferedImage existing = DEFAULT_SKIN;
+
+		if (existing != null) {
+			return existing;
+		}
+
+		BufferedImage sheet = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
+		Graphics2D g = sheet.createGraphics();
+		g.setComposite(AlphaComposite.Src);
+
+		Color hair = new Color(0x33291F);
+		Color skin = new Color(0xC98F65);
+		Color skinDark = new Color(0xAF7750);
+		Color shirt = new Color(0x2E8C8C);
+		Color shirtDark = new Color(0x23706F);
+		Color trousers = new Color(0x2B3A67);
+		Color trousersDark = new Color(0x22305A);
+		Color shoe = new Color(0x3A3A3A);
+		Color mouth = new Color(0x7A4B36);
+
+		// Head: top, bottom, right, front, left, back, then the hair line and the face.
+		block(g, hair, 8, 0, 8, 8);
+		block(g, skin, 16, 0, 8, 8);
+		block(g, hair, 0, 8, 8, 8);
+		block(g, skin, 8, 8, 8, 8);
+		block(g, hair, 16, 8, 8, 8);
+		block(g, hair, 24, 8, 8, 8);
+		block(g, hair, 8, 8, 8, 2);
+		block(g, hair, 8, 10, 1, 2);
+		block(g, hair, 15, 10, 1, 2);
+		block(g, Color.WHITE, 9, 11, 2, 1);
+		block(g, new Color(0x2E3C8F), 10, 11, 1, 1);
+		block(g, Color.WHITE, 13, 11, 2, 1);
+		block(g, new Color(0x2E3C8F), 13, 11, 1, 1);
+		block(g, skinDark, 11, 12, 2, 1);
+		block(g, mouth, 11, 13, 2, 1);
+
+		// Body: shirt with a skin-coloured neckline.
+		block(g, skin, 20, 20, 8, 1);
+		block(g, shirt, 20, 21, 8, 11);
+		block(g, shirtDark, 16, 20, 4, 12);
+		block(g, shirtDark, 28, 20, 4, 12);
+		block(g, shirtDark, 20, 16, 8, 4);
+		block(g, shirtDark, 28, 16, 8, 4);
+		block(g, shirt, 32, 20, 8, 12);
+
+		// Right arm and right leg, then the left pair.
+		limb(g, shirt, shirtDark, skin, 44, 20, 48, 20, 44, 16, 48, 16, true);
+		limb(g, shirt, shirtDark, skin, 36, 52, 40, 52, 36, 48, 40, 48, true);
+		limb(g, trousers, trousersDark, shoe, 4, 20, 8, 20, 4, 16, 8, 16, false);
+		limb(g, trousers, trousersDark, shoe, 20, 52, 24, 52, 20, 48, 24, 48, false);
+
+		g.dispose();
+		DEFAULT_SKIN = sheet;
+		return sheet;
+	}
+
+	/** One 4x12 limb: sleeve or trouser at the top, skin or shoe at the bottom, plus its side and caps. */
+	private static void limb(Graphics2D g, Color main, Color shade, Color end, int frontX, int frontY,
+			int sideX, int sideY, int topX, int topY, int bottomX, int bottomY, boolean sleeve) {
+		int split = sleeve ? 4 : 10;
+		block(g, main, frontX, frontY, 4, split);
+		block(g, end, frontX, frontY + split, 4, 12 - split);
+		block(g, shade, sideX, sideY, 4, split);
+		block(g, end, sideX, sideY + split, 4, 12 - split);
+		block(g, main, topX, topY, 4, 4);
+		block(g, end, bottomX, bottomY, 4, 4);
+	}
+
+	private static void block(Graphics2D g, Color color, int x, int y, int width, int height) {
+		g.setColor(color);
+		g.fillRect(x, y, width, height);
 	}
 
 	/** Old 64x32 skins are mirrored into the 64x64 layout so one drawing path covers both. */
@@ -203,11 +305,11 @@ public final class PlayerSkin {
 	 */
 	private static final List<Part> PARTS = List.of(
 		new Part(new Box(-4, 24, -4, 4, 32, 4), new Uv(8, 8, 16, 8, 8, 0), new Uv(40, 8, 48, 8, 40, 0), 0, 0),
-		new Part(new Box(-4, 12, -2, 4, 24, 2), new Uv(20, 20, 28, 20, 20, 16), new Uv(20, 36, 28, 36, 20, 32), 26, 26),
-		new Part(new Box(-8, 12, -2, -4, 24, 2), new Uv(44, 20, 48, 20, 44, 16), new Uv(44, 36, 48, 36, 44, 32), 0, 74),
-		new Part(new Box(4, 12, -2, 8, 24, 2), new Uv(36, 52, 40, 52, 36, 48), new Uv(52, 52, 56, 52, 52, 48), 74, 0),
-		new Part(new Box(-4, 0, -2, 0, 12, 2), new Uv(4, 20, 8, 20, 4, 16), new Uv(4, 36, 8, 36, 4, 32), 0, 86),
-		new Part(new Box(0, 0, -2, 4, 12, 2), new Uv(20, 52, 24, 52, 20, 48), new Uv(4, 52, 8, 52, 4, 48), 86, 0)
+		new Part(new Box(-4, 12, -2, 4, 24, 2), new Uv(20, 20, 28, 20, 20, 16), new Uv(20, 36, 28, 36, 20, 32), 34, 34),
+		new Part(new Box(-8, 12, -2, -4, 24, 2), new Uv(44, 20, 48, 20, 44, 16), new Uv(44, 36, 48, 36, 44, 32), 0, 120),
+		new Part(new Box(4, 12, -2, 8, 24, 2), new Uv(36, 52, 40, 52, 36, 48), new Uv(52, 52, 56, 52, 52, 48), 120, 0),
+		new Part(new Box(-4, 0, -2, 0, 12, 2), new Uv(4, 20, 8, 20, 4, 16), new Uv(4, 36, 8, 36, 4, 32), 0, 130),
+		new Part(new Box(0, 0, -2, 4, 12, 2), new Uv(20, 52, 24, 52, 20, 48), new Uv(4, 52, 8, 52, 4, 48), 130, 0)
 	);
 
 	/** A textured quad ready to paint: four projected corners, a skin tile and a light level. */

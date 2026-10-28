@@ -223,6 +223,8 @@ public final class LauncherFrame extends JFrame {
 		brand.add(Ui.caps("launcher"));
 		brand.add(Ui.hgap(8));
 		brand.add(Ui.dim("v" + dev.shrd.launcher.Version.CURRENT));
+		brand.add(Ui.hgap(14));
+		brand.add(new ThemePill());
 		bar.add(brand, BorderLayout.WEST);
 
 		JPanel buttons = Ui.row();
@@ -264,7 +266,7 @@ public final class LauncherFrame extends JFrame {
 		rail.setBackground(Theme.RAIL);
 		rail.setLayout(new javax.swing.BoxLayout(rail, javax.swing.BoxLayout.Y_AXIS));
 		rail.setBorder(new EmptyBorder(14, 10, 12, 10));
-		rail.setPreferredSize(new Dimension(100, 10));
+		rail.setPreferredSize(new Dimension(84, 10));
 
 		rail.add(railItem("home", "Home", Icons::home, () -> showPage("home")));
 		rail.add(railItem("instances", "Instances", Icons::instances, () -> showPage("instances")));
@@ -275,24 +277,140 @@ public final class LauncherFrame extends JFrame {
 		rail.add(railItem("settings", "Settings", Icons::sliders, () -> showPage("settings")));
 		rail.add(javax.swing.Box.createVerticalGlue());
 
+		rail.add(launchButton());
+		rail.add(Ui.gap(12));
 		rail.add(accountChip());
 		return rail;
 	}
 
+	/**
+	 * The round launch button at the foot of the rail: the one action a launcher exists for, always in
+	 * the same place, out of the way of the pages. It turns into a stop square while the game runs.
+	 */
+	private JComponent launchButton() {
+		JComponent button = new JComponent() {
+			private boolean hover;
+
+			{
+				setPreferredSize(new Dimension(46, 46));
+				setMaximumSize(new Dimension(46, 46));
+				setMinimumSize(new Dimension(46, 46));
+				setAlignmentX(CENTER_ALIGNMENT);
+				setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+				setToolTipText("Play Minecraft");
+				addMouseListener(new MouseAdapter() {
+					@Override
+					public void mouseClicked(MouseEvent event) {
+						app.togglePlay();
+					}
+
+					@Override
+					public void mouseEntered(MouseEvent event) {
+						hover = true;
+						repaint();
+					}
+
+					@Override
+					public void mouseExited(MouseEvent event) {
+						hover = false;
+						repaint();
+					}
+				});
+			}
+
+			@Override
+			protected void paintComponent(Graphics graphics) {
+				Graphics2D g = (Graphics2D) graphics.create();
+				Ui.hints(g);
+				boolean running = app.isRunning();
+				int size = Math.min(getWidth(), getHeight());
+				g.setPaint(new java.awt.GradientPaint(0, 0, hover ? Theme.ACCENT_ALT : Theme.ACCENT, 0, size, Theme.ACCENT_DEEP));
+				g.fillOval(0, 0, size, size);
+				g.setColor(Theme.alpha(Color.WHITE, 70));
+				g.drawOval(0, 0, size - 1, size - 1);
+
+				// Drawn rather than an icon font, like every other glyph in the window.
+				if (running) {
+					Icons.square(g, size / 4, size / 4, size / 2, Theme.ON_ACCENT);
+				} else {
+					Icons.play(g, size / 4 - 1, size / 4, size / 2, Theme.ON_ACCENT);
+				}
+
+				g.dispose();
+			}
+		};
+		app.onRefresh(button::repaint);
+		return button;
+	}
+
+	/**
+	 * The account, as just the face: the rail is a strip of icons, and the name is already on the
+	 * hero's own account chip where there is room for it.
+	 */
 	private JComponent accountChip() {
 		JPanel chip = Ui.column();
-		chip.setAlignmentX(LEFT_ALIGNMENT);
-		chip.add(new Avatar());
-		chip.add(Ui.gap(6));
-		JLabel name = Ui.dim("");
-		name.setAlignmentX(LEFT_ALIGNMENT);
-		chip.add(name);
+		chip.setAlignmentX(CENTER_ALIGNMENT);
+		chip.setPreferredSize(new Dimension(40, 40));
+		chip.setMinimumSize(new Dimension(40, 40));
+		chip.setMaximumSize(new Dimension(40, 40));
+		Avatar avatar = new Avatar();
+		avatar.setAlignmentX(CENTER_ALIGNMENT);
+		chip.add(avatar);
 		app.onRefresh(() -> {
-			Account account = app.config.activeAccount();
-			name.setText(account.name);
-			chip.repaint();
+			avatar.setToolTipText("Signed in as " + app.config.activeAccount().name + " — open Settings");
+			avatar.repaint();
 		});
 		return chip;
+	}
+
+	/** The pill in the title bar: the theme in use, and the way to change it. */
+	private final class ThemePill extends JComponent {
+		private boolean hover;
+
+		private ThemePill() {
+			setPreferredSize(new Dimension(196, 22));
+			setMaximumSize(new Dimension(196, 22));
+			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+			setToolTipText("Change the colour and background on the Customisation page");
+			addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseClicked(MouseEvent event) {
+					showPage("customise");
+				}
+
+				@Override
+				public void mouseEntered(MouseEvent event) {
+					hover = true;
+					repaint();
+				}
+
+				@Override
+				public void mouseExited(MouseEvent event) {
+					hover = false;
+					repaint();
+				}
+			});
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			Ui.hints(g);
+			g.setColor(hover ? Theme.ROW_HOVER : Theme.TRACK);
+			Ui.roundRect(g, 0, 0, getWidth(), getHeight(), 11);
+			g.setColor(Theme.alpha(Theme.ACCENT, hover ? 200 : 120));
+			g.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 11, 11);
+
+			g.setColor(Theme.ACCENT);
+			g.fillOval(10, getHeight() / 2 - 4, 8, 8);
+			g.setFont(Theme.font(11));
+			g.setColor(Theme.TEXT_ACCENT);
+			g.drawString("Custom theme", 25, getHeight() / 2 + 4);
+			g.setFont(Theme.bold(11));
+			g.setColor(Theme.TEXT_DIM);
+			g.drawString(Theme.currentHex(), 112, getHeight() / 2 + 4);
+			g.dispose();
+		}
 	}
 
 	private RailItem railItem(String id, String label, Icons.Glyph glyph, Runnable onClick) {
@@ -413,7 +531,7 @@ public final class LauncherFrame extends JFrame {
 
 	/** A rail entry: a tile with the glyph in it, the label underneath, and the accent when chosen. */
 	private static final class RailItem extends JComponent {
-		private static final int TILE_H = 40;
+		private static final int TILE_H = 44;
 		private final String label;
 		private final Icons.Glyph glyph;
 		private boolean selected;
@@ -423,8 +541,8 @@ public final class LauncherFrame extends JFrame {
 			this.label = label;
 			this.glyph = glyph;
 			setLayout(null);
-			setPreferredSize(new Dimension(80, 60));
-			setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
+			setPreferredSize(new Dimension(64, 52));
+			setMaximumSize(new Dimension(Integer.MAX_VALUE, 52));
 			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 			setToolTipText(label);
 			addMouseListener(new MouseAdapter() {
@@ -459,28 +577,23 @@ public final class LauncherFrame extends JFrame {
 
 			// The tile is the thing that reacts, not the whole row: the rail stays quiet, and the
 			// glyph sits in a shape the eye can follow down the column.
-			int tileWidth = Math.min(52, getWidth() - 8);
+			int tileWidth = Math.min(TILE_H, getWidth() - 6);
 			int tileX = (getWidth() - tileWidth) / 2;
+			int tileY = (getHeight() - TILE_H) / 2;
 
 			if (selected) {
-				g.setPaint(new java.awt.GradientPaint(0, 2, Theme.ACCENT, 0, 2 + TILE_H, Theme.ACCENT_DEEP));
-				Ui.roundRect(g, tileX, 2, tileWidth, TILE_H, 12);
-				g.setColor(Theme.alpha(Color.WHITE, 90));
-				g.drawRoundRect(tileX, 2, tileWidth - 1, TILE_H - 1, 12, 12);
+				g.setPaint(new java.awt.GradientPaint(0, tileY, Theme.ACCENT, 0, tileY + TILE_H, Theme.ACCENT_DEEP));
+				Ui.roundRect(g, tileX, tileY, tileWidth, TILE_H, 13);
+				g.setColor(Theme.alpha(Color.WHITE, 80));
+				g.drawRoundRect(tileX, tileY, tileWidth - 1, TILE_H - 1, 13, 13);
 			} else if (hover) {
 				g.setColor(Theme.ROW_HOVER);
-				Ui.roundRect(g, tileX, 2, tileWidth, TILE_H, 12);
+				Ui.roundRect(g, tileX, tileY, tileWidth, TILE_H, 13);
 			}
 
 			Color color = selected ? Theme.ON_ACCENT : (hover ? Theme.TEXT : Theme.TEXT_DIM);
 			int size = 21;
-			glyph.paint(g, (getWidth() - size) / 2, 2 + (TILE_H - size) / 2, size, color);
-
-			String text = label.toUpperCase(java.util.Locale.ROOT);
-			g.setFont(Theme.bold(9));
-			g.setColor(selected ? Theme.TEXT_ACCENT : (hover ? Theme.TEXT : Theme.TEXT_DISABLED));
-			int width = g.getFontMetrics().stringWidth(text);
-			g.drawString(text, (getWidth() - width) / 2, getHeight() - 6);
+			glyph.paint(g, (getWidth() - size) / 2, tileY + (TILE_H - size) / 2, size, color);
 			g.dispose();
 		}
 	}
@@ -488,9 +601,10 @@ public final class LauncherFrame extends JFrame {
 	/** The account badge at the bottom of the rail: a gradient circle with your initial. */
 	private final class Avatar extends JComponent {
 		private Avatar() {
-			setPreferredSize(new Dimension(40, 40));
-			setMaximumSize(new Dimension(40, 40));
-			setAlignmentX(LEFT_ALIGNMENT);
+			setPreferredSize(new Dimension(38, 38));
+			setMinimumSize(new Dimension(38, 38));
+			setMaximumSize(new Dimension(38, 38));
+			setAlignmentX(CENTER_ALIGNMENT);
 			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 			setToolTipText("Accounts are managed on the Settings page");
 			addMouseListener(new MouseAdapter() {
@@ -505,13 +619,16 @@ public final class LauncherFrame extends JFrame {
 		protected void paintComponent(Graphics graphics) {
 			Graphics2D g = (Graphics2D) graphics.create();
 			Ui.hints(g);
-			g.setPaint(new java.awt.GradientPaint(0, 0, Theme.ACCENT_ALT, getWidth(), getHeight(), Theme.ACCENT_DEEP));
-			g.fillOval(0, 0, getWidth(), getHeight());
+			int size = Math.min(getWidth(), getHeight());
+			g.setPaint(new java.awt.GradientPaint(0, 0, Theme.ACCENT_ALT, size, size, Theme.ACCENT_DEEP));
+			g.fillOval(0, 0, size, size);
+			g.setColor(Theme.alpha(Color.WHITE, 60));
+			g.drawOval(0, 0, size - 1, size - 1);
 			String initial = app.config.activeAccount().name.substring(0, 1).toUpperCase(java.util.Locale.ROOT);
-			g.setFont(Theme.bold(17));
+			g.setFont(Theme.bold(16));
 			g.setColor(Theme.ON_ACCENT);
 			int width = g.getFontMetrics().stringWidth(initial);
-			g.drawString(initial, (getWidth() - width) / 2, getHeight() / 2 + 6);
+			g.drawString(initial, (size - width) / 2, size / 2 + 6);
 			g.dispose();
 		}
 	}

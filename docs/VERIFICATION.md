@@ -969,12 +969,8 @@ Rendered from that installed copy, not the development build:
   installer (4b.10): the files, the Start Menu shortcut, the Apps & features entry and launching it
   from that shortcut all work. Removing it was left for the owner of the machine to choose; the
   uninstall string Apps & features registers is `MsiExec.exe /X{CB150244-82B1-3C1B-B9C3-36CEDAE1B8CF}`.
-- **An installed copy on a machine with no Java 25 cannot start the game.** This is the first thing
-  the real install exposed (4b.10). `JavaRuntime` looks at the configured path, a `.toolchain` JDK
-  beside the launcher, `JAVA_HOME`, then `PATH`; a packaged install on a clean machine has none of
-  those, and the launcher has no "download a runtime" path. The `runtime/` folder in the package is
-  the launcher's own trimmed JRE, not a game runtime. The Settings page says so plainly ("No Java
-  found — the game cannot start until one is set"), but a new user has to supply Java themselves.
+- ~~**An installed copy on a machine with no Java 25 cannot start the game.**~~ **Fixed in 1.6.0** (4b.20):
+  the launcher finds its own runtime, and downloads a Temurin JRE 25 when the machine has none.
 - **The update prompt's own buttons were not clicked.** Updating an install inside `Program Files`
   is now verified for real (4b.17) — download, elevated mirror, restart, then `UP-TO-DATE` — but the
   *offer* was applied through the launcher's CLI, so the dialog's "Update now" button and the UAC
@@ -992,3 +988,113 @@ Rendered from that installed copy, not the development build:
 - **The icons were not inspected in the real Windows taskbar or in Apps & features.** The window
   sets its icon from the same PNG, and the `.ico` is what jpackage embedded, but nobody looked at
   Explorer or the taskbar to confirm it renders there.
+
+### 4b.20 The installed launcher finds its own Java, and Home is rearranged
+
+The first thing the real install exposed (4b.10) was that a packaged copy could not find a Java to
+start the game with. That is fixed and checked in the layout that failed:
+
+```
+== run from the installed runtime, cwd = C:\Program Files\Shrd Launcher ==
+own=C:\Program Files\Shrd Launcher\runtime\bin\java.exe
+detect=C:\Program Files\Shrd Launcher\runtime\bin\java.exe
+version=25.0.5
+```
+
+`JavaRuntime.detect` now asks the JVM it is running on (`java.home`) first, then a `runtime/` or
+`jre/` beside the app image, then a Minecraft runtime, then the launcher's own downloaded runtime,
+then the usual install folders (`Program Files\Java`, `Eclipse Adoptium`, `Microsoft`, `Zulu`,
+`Amazon Corretto`, `BellSoft`, `%LOCALAPPDATA%\Programs`, `~/.jdks`), then `JAVA_HOME` and `PATH`.
+
+When nothing on the machine can run 26.2, the launcher now downloads a runtime itself — a plain
+Temurin JRE 25 from Adoptium, unpacked under `~/.shrd-launcher/runtime/jre-25`, no installer and no
+admin rights. Run against a scratch data folder:
+
+```
+INFO downloading Java 25 from https://api.adoptium.net/v3/binary/latest/25/ga/windows/x64/jre/hotspot/normal/eclipse
+INFO Java 25 ready at …\runtime\jre-25\bin\java.exe
+downloaded=…\runtime\jre-25\bin\java.exe
+version=25.0.5
+```
+
+It is started in two places: `App.installAccount` (so signing in with Microsoft also readies the
+Java) and a Play press with no usable Java, which downloads one and then takes the Play press again.
+Settings → Java's "Find it for me" button runs the same path.
+
+**The packaged 1.6.0 build renders and reports the same thing.** `dist/Shrd Launcher/Shrd Launcher.exe
+--shot home,…` (exit 0) produced the page in `build/shot/packaged-home.png`: version 1.6.0 in the
+title bar, and the status strip reading `Java 25.0.5 · shrd launcher 1.6.0` — the installed copy's
+own runtime, found without any configuration.
+
+**The skin was checked against Mojang's own render** rather than by eye alone. The launcher's figure
+was drawn to a PNG (`build/shot/skin-figure2.png`) from the cached sheet and compared with
+`mc-heads.net/body/<uuid>/right` for the same account: same hair sweep over the eyes, same grey
+shoulder pads, same dark outfit, same leg seams. The pose gained a little more turn (`YAW -27°`,
+`PITCH 4°`) and stronger seams between touching limbs so arms and legs read as four shapes instead
+of one block.
+
+**Home was rearranged to match the reference layout:** the page title is gone (brand tabs take its
+place), the update offer moved from the banner to the top-right of the row above it, the name plate
+sits over the player's head instead of beside it, the banner is taller, and the two bottom actions
+are an even split. The rail keeps icon-only tiles, and gained the account face alone at the foot —
+see `build/shot/home-1.6e.png`.
+
+Limits of this round:
+
+- **The download was exercised from a harness, not from a fresh sign-in.** `App.prepareJava` is the
+  same call in both places, but no new Microsoft account was signed in to watch the GUI do it.
+- **The installed copy was not replaced.** The 1.6.0 installer and MSI are built
+  (`dist/Shrd Launcher-1.6.0.exe`, `.msi`, and the zip), but installing over `Program Files` needs an
+  elevation prompt, and this round did not take one. The portable 1.6.0 app image was run instead.
+- **Pages other than Home and Settings were not re-shot** after the rail changed.
+
+### 4b.21 A Modrinth browser inside the Mods page
+
+The Mods page now opens on a browser backed by Modrinth's public v2 API, and installs land in the
+active instance's own folders. Checked against the live API from a scratch data folder:
+
+```
+total=45 hits=5
+  Sodium by jellysquid3 | 256.3M | 16 Oct 2026 | icon=true
+  Sodium Extra by FlashyReese | 107.9M | 26 Oct 2026 | icon=true
+  …
+INFO installed Sodium (sodium-fabric-0.9.2+mc26.2.jar) into …\instances\ModrinthTest\mods — 1885572 bytes
+installed=…\instances\ModrinthTest\mods\sodium-fabric-0.9.2+mc26.2.jar bytes=1885572
+```
+
+The same run installed the other two project types into the folders the game reads:
+
+```
+resource packs (fabric filter ignored) total=10816
+  resource pack installed=…\instances\ModrinthPacks\resourcepacks\FreshAnimations_v1.11.1_26.1+.zip
+  shader installed=…\instances\ModrinthPacks\shaderpacks\ComplementaryReimagined_r5.9.3.zip
+```
+
+Facets are built from the page: project type always, then the instance's game version (26.2 by
+default) and loader for mods only — a loader facet on resource packs filtered the list to zero, which
+is why the loader filter greys out for those two types. Sort, page size and paging are the API's own
+(`relevance`, `downloads`, `follows`, `newest`, `updated`); an answer from a superseded query is
+dropped by a request counter rather than allowed to overwrite a newer list.
+
+**The list renders with real icons.** Modrinth serves project icons as WebP, which the JDK's ImageIO
+cannot read — every row fell back to a letter tile. TwelveMonkeys' `imageio-webp` reader is now a
+launcher dependency (shaded into the same jar), and the packaged build shows the real icons:
+`build/shot/mods-packaged.png`, produced by running the **1.6.0 app image's own trimmed runtime**
+against its shipped jar with a throwaway screenshot harness (not kept in the tree):
+
+```
+dist/Shrd Launcher/runtime/bin/java.exe -cp "…/app/shrd-launcher-1.6.0.jar;<harness>" ShotMods \
+    build/shot/mods-packaged.png mods 10000
+```
+
+Installed and browser views, from that build: `build/shot/mods-packaged.png` (1–20 of 13,474 results,
+Fabric 26.2) and `build/shot/mods-installed.png` (2 mods with their switches).
+
+Limits of this round:
+
+- **No modpack installation.** Modpacks are a different job — a pack manifest, its files and its
+  overrides — so the browser covers mods, resource packs and shader packs only.
+- **The Install button was not clicked by hand.** The download path it calls was run directly
+  (above), and the row's button only wraps that call, but no click was dispatched in the window.
+- **No download-progress bar.** A large mod shows "Installing…" on its button until the file lands.
+- **The page was checked at 1280×860 only**, not at the window's 1000×640 minimum.

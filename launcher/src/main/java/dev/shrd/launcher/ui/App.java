@@ -171,8 +171,61 @@ public final class App {
 
 		config.activeAccount = signedIn.name;
 		config.save();
-		status("Signed in as " + signedIn.name);
+		status("Signed in as " + signedIn.name + " — finding Java …");
 		refresh();
+		// Signing in is the moment the launcher becomes useful, so it is also the moment to make
+		// sure there is a Java to start the game with.
+		prepareJava();
+	}
+
+	/**
+	 * Finds a Java 25 for the game, downloading one into the launcher's data folder if this machine
+	 * has none. Runs off the event thread; the status strip reports each step.
+	 */
+	public void prepareJava() {
+		prepareJava(null);
+	}
+
+	public void prepareJava(Runnable then) {
+		Thread worker = new Thread(() -> {
+			try {
+				Path java = JavaRuntime.ensure(text -> SwingUtilities.invokeLater(() -> status(text)));
+
+				if (java != null) {
+					String path = java.toAbsolutePath().toString();
+					Path current = JavaRuntime.detect(config.javaPath);
+
+					if (current == null || JavaRuntime.major(JavaRuntime.version(current)) < JavaRuntime.REQUIRED_MAJOR) {
+						config.javaPath = path;
+						config.save();
+					}
+
+					String version = JavaRuntime.version(java);
+					SwingUtilities.invokeLater(() -> {
+						status("Java " + (version == null ? "ready" : version) + " — found automatically");
+						refresh();
+					});
+				}
+			} catch (Exception e) {
+				Log.warn("could not prepare Java: %s", e.getMessage());
+				SwingUtilities.invokeLater(() -> {
+					status("Could not download Java — set one on the Settings page");
+					refresh();
+				});
+			}
+
+			if (then != null && javaReady()) {
+				SwingUtilities.invokeLater(then);
+			}
+		}, "shrd-java");
+		worker.setDaemon(true);
+		worker.start();
+	}
+
+	/** True when the detected Java can actually run this Minecraft version. */
+	public boolean javaReady() {
+		Path java = java();
+		return java != null && JavaRuntime.major(JavaRuntime.version(java)) >= JavaRuntime.REQUIRED_MAJOR;
 	}
 
 	public void setProgressHandler(Consumer<Double> handler) {
@@ -240,6 +293,13 @@ public final class App {
 
 	public void play() {
 		if (service.isPreparing() || service.isRunning()) {
+			return;
+		}
+
+		if (!javaReady()) {
+			// Nothing to launch with yet: get a Java first, then take the Play press again.
+			status("Looking for Java …");
+			prepareJava(this::play);
 			return;
 		}
 

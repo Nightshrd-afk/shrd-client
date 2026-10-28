@@ -14,6 +14,7 @@ public abstract class Page extends JPanel {
 	private final JLabel subtitleLabel;
 	private final JPanel actions;
 	private final JPanel body;
+	private final JPanel header;
 
 	protected Page(App app, String title, String subtitle) {
 		this.app = app;
@@ -21,7 +22,7 @@ public abstract class Page extends JPanel {
 		setLayout(new BorderLayout(0, 18));
 		setBorder(new EmptyBorder(20, 24, 12, 24));
 
-		JPanel header = Ui.row();
+		header = Ui.row();
 		JPanel titles = Ui.column();
 		titles.add(Ui.pageTitle(title));
 		subtitleLabel = Ui.dim(subtitle);
@@ -45,6 +46,15 @@ public abstract class Page extends JPanel {
 
 	protected JPanel actions() {
 		return actions;
+	}
+
+	/**
+	 * Drops the title block. Home does this: its own brand tabs say where you are, and a heading
+	 * above them would only push the banner down.
+	 */
+	protected void hideHeader() {
+		header.setVisible(false);
+		setBorder(new EmptyBorder(10, 24, 12, 24));
 	}
 
 	protected JPanel body() {

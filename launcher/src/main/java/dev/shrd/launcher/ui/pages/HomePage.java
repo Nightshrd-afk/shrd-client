@@ -65,8 +65,12 @@ public final class HomePage extends Page {
 
 	public HomePage(App app) {
 		super(app, "Home", "Play Minecraft, with Shrd Client installed for you");
+		// The brand tabs below say where you are; a page title above them only pushes the banner down.
+		hideHeader();
 
 		JPanel column = Ui.column();
+		column.add(topBar());
+		column.add(Ui.gap(14));
 		column.add(hero);
 		column.add(Ui.gap(20));
 		column.add(sectionHeader());
@@ -86,25 +90,139 @@ public final class HomePage extends Page {
 		app.onRefresh(this::reload);
 	}
 
-	private JComponent sectionHeader() {
+	/**
+	 * The row above the banner: the brand on the left as a tab, the version beside it, and the
+	 * update offer on the right where an alert belongs. It replaces the page title, so Home opens
+	 * on artwork rather than on a heading.
+	 */
+	private JComponent topBar() {
 		JPanel row = Ui.row(new BorderLayout(12, 0));
-		row.add(Ui.heading("Last played profiles"), BorderLayout.WEST);
-		row.add(new EditionToggle(), BorderLayout.EAST);
+		JPanel tabs = Ui.row();
+		tabs.add(new BrandTab("shrd", true, () -> app.showPage("home")));
+		tabs.add(Ui.hgap(8));
+		tabs.add(new BrandTab("client", false, () -> app.showPage("mods")));
+		row.add(tabs, BorderLayout.WEST);
+		updatePill.setVisible(false);
+		row.add(updatePill, BorderLayout.EAST);
 		row.setAlignmentX(LEFT_ALIGNMENT);
-		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
 		return row;
 	}
 
+	/** A wide rounded tab with the gem on it: the accent one is the page you are on. */
+	private static final class BrandTab extends JComponent {
+		private final String text;
+		private final boolean active;
+		private boolean hover;
+
+		private BrandTab(String text, boolean active, Runnable onClick) {
+			this.text = text;
+			this.active = active;
+			setPreferredSize(new Dimension(active ? 156 : 146, 44));
+			setMaximumSize(new Dimension(active ? 156 : 146, 44));
+			setMinimumSize(new Dimension(active ? 156 : 146, 44));
+			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+			setToolTipText(active ? "Home" : "Shrd Client mods");
+			addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseClicked(MouseEvent event) {
+					onClick.run();
+				}
+
+				@Override
+				public void mouseEntered(MouseEvent event) {
+					hover = true;
+					repaint();
+				}
+
+				@Override
+				public void mouseExited(MouseEvent event) {
+					hover = false;
+					repaint();
+				}
+			});
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			Ui.hints(g);
+			int width = getWidth();
+			int height = getHeight();
+
+			if (active) {
+				g.setPaint(new GradientPaint(0, 0, hover ? Theme.ACCENT_ALT : Theme.ACCENT, width, height, Theme.ACCENT_DEEP));
+				Ui.roundRect(g, 0, 0, width, height, 12);
+				g.setColor(Theme.alpha(Color.WHITE, 60));
+				g.drawRoundRect(0, 0, width - 1, height - 1, 12, 12);
+			} else {
+				g.setColor(hover ? Theme.ROW_HOVER : new Color(11, 5, 22, 220));
+				Ui.roundRect(g, 0, 0, width, height, 12);
+				g.setColor(Theme.alpha(Theme.ACCENT, hover ? 150 : 80));
+				g.drawRoundRect(0, 0, width - 1, height - 1, 12, 12);
+			}
+
+			if (GEM != null) {
+				g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+				g.drawImage(GEM, 18, (height - 26) / 2, 26, 26, null);
+			}
+
+			g.setFont(Theme.bold(19));
+			g.setColor(active ? Theme.ON_ACCENT : Theme.TEXT);
+			String label = text.toUpperCase(java.util.Locale.ROOT);
+			int labelWidth = g.getFontMetrics().stringWidth(label);
+			g.drawString(label, 54 + (width - 54 - 18 - labelWidth) / 2, height / 2 + 7);
+			g.dispose();
+		}
+	}
+
+	private JComponent sectionHeader() {
+		JPanel row = Ui.row(new BorderLayout(12, 0));
+		JPanel title = Ui.row();
+		title.add(new GlyphTile(Icons::clock, Theme.TEXT_ACCENT));
+		title.add(Ui.hgap(9));
+		title.add(Ui.caps("Last played profiles"));
+		row.add(title, BorderLayout.WEST);
+		row.add(new EditionToggle(), BorderLayout.EAST);
+		row.setAlignmentX(LEFT_ALIGNMENT);
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+		return row;
+	}
+
+	/** A small square with a drawn glyph in it, used to head a section. */
+	private static final class GlyphTile extends JComponent {
+		private final Icons.Glyph glyph;
+		private final Color color;
+
+		private GlyphTile(Icons.Glyph glyph, Color color) {
+			this.glyph = glyph;
+			this.color = color;
+			setPreferredSize(new Dimension(20, 20));
+			setMaximumSize(new Dimension(20, 20));
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			Ui.hints(g);
+			g.setColor(Theme.alpha(Theme.ACCENT, 40));
+			Ui.roundRect(g, 0, 0, getWidth(), getHeight(), 6);
+			glyph.paint(g, 3, 3, 14, color);
+			g.dispose();
+		}
+	}
+
+	/** Two wide pills, split evenly: the two things a player does after picking a profile. */
 	private JPanel bottomBar() {
-		JPanel bar = Ui.row();
+		JPanel bar = new JPanel(new java.awt.GridLayout(1, 2, 12, 0));
+		bar.setOpaque(false);
 		bar.setBorder(new EmptyBorder(16, 0, 0, 0));
 
-		Ui.Button manage = Ui.primary("Manage all profiles").size(360, 46).withGlyph(Icons::instances);
+		Ui.Button manage = Ui.primary("Manage all profiles").size(300, 46).withGlyph(Icons::instances);
 		manage.onClick(button -> app.showPage("instances"));
-		bar.add(Ui.fill(manage));
-		bar.add(Ui.hgap(12));
+		bar.add(manage);
 
-		Ui.Button mods = Ui.secondary("Add mods").size(260, 46).withGlyph(Icons::mods);
+		Ui.Button mods = Ui.secondary("Add mods").size(300, 46).withGlyph(Icons::mods);
 		mods.onClick(button -> app.showPage("mods"));
 		bar.add(mods);
 		return bar;
@@ -117,7 +235,7 @@ public final class HomePage extends Page {
 		row.setSelected(active);
 		row.setLayout(new BorderLayout(16, 0));
 
-		row.add(new IconTile(58), BorderLayout.WEST);
+		row.add(new IconTile(62), BorderLayout.WEST);
 
 		JPanel titles = Ui.column();
 		JLabel name = new JLabel(instance.name);
@@ -161,7 +279,7 @@ public final class HomePage extends Page {
 		controls.add(gear);
 		row.add(controls, BorderLayout.EAST);
 		row.setAlignmentX(LEFT_ALIGNMENT);
-		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 88));
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 96));
 		return row;
 	}
 
@@ -295,14 +413,12 @@ public final class HomePage extends Page {
 		private Hero() {
 			setLayout(null);
 			setAlignmentX(LEFT_ALIGNMENT);
-			setPreferredSize(new Dimension(10, 320));
-			setMaximumSize(new Dimension(Integer.MAX_VALUE, 320));
+			setPreferredSize(new Dimension(10, 344));
+			setMaximumSize(new Dimension(Integer.MAX_VALUE, 344));
 			add(namePlate);
 			add(clientCard);
 			add(accountChip);
-			add(updatePill);
 			add(customise);
-			updatePill.setVisible(false);
 		}
 
 		private void setSkin(BufferedImage image) {
@@ -312,19 +428,23 @@ public final class HomePage extends Page {
 
 		/** Where the figure stands: right of centre, clear of the corners the chrome sits in. */
 		private Rectangle figureBox() {
-			int height = (int) (getHeight() * 0.76);
+			// Two thirds of the banner, leaving the strip above the head for the name plate.
+			int height = (int) (getHeight() * 0.72);
 			double unit = height / 32.0;
 			int width = (int) Math.round(16 * unit);
-			return new Rectangle(getWidth() - width - 92, getHeight() - height - 16, width, height);
+			return new Rectangle(getWidth() - width - 74, getHeight() - height - 12, width, height);
 		}
 
 		@Override
 		public void doLayout() {
 			Rectangle figure = figureBox();
-			namePlate.setBounds(Math.max(24, figure.x - 220), 34, 200, 54);
+			// The name sits over the player's head, the way a profile page labels a portrait.
+			int plateWidth = 220;
+			int plateHeight = 52;
+			int plateX = Math.min(getWidth() - plateWidth - 18, Math.max(18, figure.x + figure.width / 2 - plateWidth / 2));
+			namePlate.setBounds(plateX, Math.max(14, figure.y - plateHeight - 12), plateWidth, plateHeight);
 			clientCard.setBounds(24, getHeight() - 158, 216, 128);
 			accountChip.setBounds(Math.max(268, (getWidth() - 254) / 2), getHeight() - 58, 254, 42);
-			updatePill.setBounds(getWidth() - 202, 24, 178, 36);
 			customise.setBounds(getWidth() - 60, getHeight() - 54, 40, 40);
 		}
 
@@ -364,6 +484,11 @@ public final class HomePage extends Page {
 				g.fillRect(0, 0, width, height);
 			}
 
+			// A diagonal sheen across the top-right, so the banner reads as a lit surface.
+			g.setPaint(new GradientPaint(width * 0.55f, 0, Theme.alpha(Color.WHITE, 26), width, height, new Color(255, 255, 255, 0)));
+			g.fillPolygon(new int[] { (int) (width * 0.55), width, width, (int) (width * 0.8) },
+				new int[] { 0, 0, (int) (height * 0.55), 0 }, 4);
+
 			// The same plus-sign texture the pages sit on, at a lower strength: it ties the banner to
 			// the window without competing with the artwork.
 			Ui.hatch(g, 0, 0, width, height, 0.05f);
@@ -372,10 +497,11 @@ public final class HomePage extends Page {
 			g.setPaint(new GradientPaint(0, height * 0.45f, new Color(0, 0, 0, 0), 0, height, new Color(6, 3, 12, 225)));
 			g.fillRect(0, (int) (height * 0.45f), width, height);
 
+			// A narrow pool of light under the figure, so it stands in the scene rather than on it.
 			Rectangle figure = figureBox();
-			g.setPaint(new java.awt.RadialGradientPaint(figure.x + figure.width / 2f, figure.y + figure.height * 0.55f, figure.width,
-				new float[] { 0f, 1f }, new Color[] { Theme.alpha(Theme.ACCENT_ALT, 110), new Color(0, 0, 0, 0) }));
-			g.fillOval(figure.x - figure.width / 2, figure.y - 10, figure.width * 2, figure.height);
+			g.setPaint(new java.awt.RadialGradientPaint(figure.x + figure.width / 2f, figure.y + figure.height * 0.62f, figure.width * 0.85f,
+				new float[] { 0f, 1f }, new Color[] { Theme.alpha(Theme.ACCENT_ALT, 84), new Color(0, 0, 0, 0) }));
+			g.fillOval(figure.x - figure.width / 2, figure.y - 6, figure.width * 2, (int) (figure.height * 1.05));
 
 			PlayerSkin.paint(g, skin, figure.x, figure.y, figure.height);
 

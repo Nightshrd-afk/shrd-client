@@ -258,6 +258,7 @@ public final class Ui {
 		private final Variant variant;
 		private Consumer<Button> onClick;
 		private Glyph glyph;
+		private boolean pill;
 
 		public interface Glyph {
 			void paint(Graphics2D g, int x, int y, int size, Color color);
@@ -278,6 +279,12 @@ public final class Ui {
 
 		public Button withGlyph(Glyph glyph) {
 			this.glyph = glyph;
+			return this;
+		}
+
+		/** Fully rounded ends, the shape the big actions at the bottom of a page wear. */
+		public Button pill() {
+			pill = true;
 			return this;
 		}
 
@@ -343,14 +350,16 @@ public final class Ui {
 				textColor = Theme.TEXT_DISABLED;
 			}
 
+			int radius = pill ? height / 2 : (variant == Variant.PRIMARY ? RADIUS : 6);
+
 			if (fillTop.getAlpha() > 0) {
 				g.setPaint(new GradientPaint(0, 0, fillTop, 0, height, fillBottom));
-				roundRect(g, 0, 0, width, height, variant == Variant.PRIMARY ? RADIUS : 6);
+				roundRect(g, 0, 0, width, height, radius);
 			}
 
 			if (border.getAlpha() > 0) {
 				g.setColor(border);
-				g.drawRoundRect(0, 0, width - 1, height - 1, variant == Variant.PRIMARY ? RADIUS : 6, variant == Variant.PRIMARY ? RADIUS : 6);
+				g.drawRoundRect(0, 0, width - 1, height - 1, radius, radius);
 			}
 
 			FontMetrics metrics = g.getFontMetrics(getFont());

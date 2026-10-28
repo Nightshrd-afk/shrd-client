@@ -81,15 +81,20 @@ public final class SettingsPage extends Page {
 
 	private JPanel javaCard() {
 		Ui.Card card = new Ui.Card("Java");
-		card.body().add(Ui.dim("Minecraft 26.2 needs Java 25 or newer. Blank means the launcher picks one: the bundled .toolchain JDK, then JAVA_HOME, then PATH."));
+		card.body().add(Ui.dim("Minecraft 26.2 needs Java 25 or newer."));
+		card.body().add(Ui.gap(3));
+		card.body().add(Ui.dim("Blank means the launcher finds one — and downloads Java 25 if this machine has none."));
 		card.body().add(Ui.gap(12));
 		card.body().add(Ui.fill(javaField));
 		card.body().add(Ui.gap(10));
 
 		JPanel buttons = Ui.row();
-		buttons.add(Ui.secondary("Detect automatically").size(190, 34).onClick(button -> {
+		buttons.add(Ui.secondary("Find it for me").size(160, 34).onClick(button -> {
 			app.config.javaPath = "";
 			app.config.save();
+			javaStatus.setForeground(Theme.TEXT_DIM);
+			javaStatus.setText("Looking for Java …");
+			app.prepareJava();
 			reload();
 		}));
 		buttons.add(Ui.hgap(10));
@@ -424,8 +429,8 @@ public final class SettingsPage extends Page {
 		Path java = app.java();
 
 		if (java == null) {
-			javaStatus.setForeground(Theme.BAD);
-			javaStatus.setText("No Java found — the game cannot start until one is set.");
+			javaStatus.setForeground(Theme.WARN);
+			javaStatus.setText("No Java yet — press Find it for me to download Java 25 into the launcher's data folder.");
 		} else {
 			String version = JavaRuntime.version(java);
 			int major = JavaRuntime.major(version);

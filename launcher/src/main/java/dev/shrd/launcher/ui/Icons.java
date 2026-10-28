@@ -180,6 +180,17 @@ public final class Icons {
 		g.fill(new Ellipse2D.Double(x + unit * 0.62, y + unit * 0.30, dot, dot));
 	}
 
+	/** A clock, for the "last played" row. */
+	public static void clock(Graphics2D g, int x, int y, int size, Color color) {
+		start(g, size, color);
+		double unit = size;
+		double cx = x + unit * 0.5;
+		double cy = y + unit * 0.5;
+		g.draw(new Ellipse2D.Double(cx - unit * 0.40, cy - unit * 0.40, unit * 0.80, unit * 0.80));
+		g.draw(new java.awt.geom.Line2D.Double(cx, cy - unit * 0.20, cx, cy));
+		g.draw(new java.awt.geom.Line2D.Double(cx, cy, cx + unit * 0.16, cy + unit * 0.08));
+	}
+
 	/** Three sliders: the appearance/settings icon that stays legible at rail size. */
 	public static void sliders(Graphics2D g, int x, int y, int size, Color color) {
 		start(g, size, color);
