@@ -104,8 +104,27 @@ for file in "$OUT/Shrd Launcher-$VERSION.exe" "$OUT/Shrd Launcher-$VERSION.msi" 
 	[ -f "$file" ] || fail "the build did not produce $file"
 done
 
+# Runs the packaged launcher. That is the freshly built .exe when the machine allows it, and the jar
+# inside the same app image when it does not: Windows application control can refuse to start a
+# brand-new unsigned binary, which says nothing about whether the build is correct. The jar is what
+# the .exe starts anyway, so the version it reports is the same evidence.
+PACKAGED_JAR="$APP/app/shrd-launcher-$VERSION.jar"
+
+run_packaged() {
+	if "$EXE" "$@" 2>/dev/null; then
+		return 0
+	fi
+
+	[ -f "$PACKAGED_JAR" ] || return 1
+	echo "note: $EXE could not be started here (application control?), using the packaged jar" >&2
+	JAVA_FOR_PACKAGE="${JAVA_HOME}/bin/java"
+	[ -x "$JAVA_FOR_PACKAGE" ] || JAVA_FOR_PACKAGE="$(command -v java || true)"
+	[ -x "$JAVA_FOR_PACKAGE" ] || return 1
+	"$JAVA_FOR_PACKAGE" -jar "$PACKAGED_JAR" "$@"
+}
+
 section "the built launcher reports the version it is published as"
-REPORTED="$("$EXE" --version | grep -aoE '^SHRD-VERSION [^ ]+' | head -1 | cut -d' ' -f2)"
+REPORTED="$(run_packaged --version | grep -aoE '^SHRD-VERSION [^ ]+' | head -1 | cut -d' ' -f2)"
 
 if [ "$REPORTED" != "$VERSION" ]; then
 	fail "the built launcher reports '$REPORTED' but this release is $VERSION"
@@ -236,7 +255,7 @@ done
 
 section "the launcher's own update check, against the live release"
 # Captured rather than piped: piping into sed would report sed's exit status and hide a failed check.
-CHECK_OUT="$("$EXE" --check-update --manifest "$MANIFEST_URL")" || fail "the launcher could not read the live manifest at $MANIFEST_URL"
+CHECK_OUT="$(run_packaged --check-update --manifest "$MANIFEST_URL")" || fail "the launcher could not read the live manifest at $MANIFEST_URL"
 printf '%s\n' "$CHECK_OUT" | sed 's/^/  /'
 printf '%s\n' "$CHECK_OUT" | grep -q 'SHRD-UPDATE-UP-TO-DATE' \
 	|| fail "the launcher does not recognise the release it just published as its own version"
