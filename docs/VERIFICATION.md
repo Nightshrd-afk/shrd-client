@@ -1269,3 +1269,44 @@ launch: started pid=37396 … still-running after 120s, world generated and save
 **This is the one part of 1.6.1 that is a workaround, not a fix**: the MSI installs a launcher stub
 that is not code-signed, and on a machine with Application Control enforcing, that stub can be
 blocked. The portable zip carries the signed launcher and is unaffected.
+
+## 9. The mod browser fits the window, and Install brings the libraries with it
+
+**The layout.** The complaint was that the page was stretched out and the whole thing could not be
+seen. It was reproducible: at 1100x680 and 1280x720 a long Modrinth description made its row wider
+than the viewport, because a `JLabel` reports the width of its whole string and Swing does not clip a
+child to its parent. The text was cut mid-word and painted straight over the Install button, and the
+count ran under the sort menu at the 1000x640 minimum window size.
+
+`Ui.Elided` is a one-line component that reports a small preferred width, stretches to what the
+layout gives it, and draws its own "…" — measured with `FontMetrics`, so the cut always lands on a
+whole word boundary. It now carries the project name, the description, the download numbers, the
+installed jar names and the line under the filters. The result count moved into the card header,
+where there is room for it at every size. Rows are 84px instead of 96, so more results fit.
+
+Rendered from the real frame (a visible window: JScrollPane and BoxLayout only lay their children out
+on screen) at 1000x640, 1100x680, 1280x720 and 1512x876:
+
+```
+1000x640  count in header, 4 rows, descriptions end in "…", no overlap
+1100x680  same, install buttons fully inside the card
+1280x720  4 rows plus a fifth partly visible, scrolling
+1512x876  5 rows plus a sixth partly visible, scrolling
+installed tab at 1000x640: names, sizes, switches and Remove all inside the row
+```
+
+**Dependencies.** `Modrinth.install` already walked the `dependencies` array, and a dependency that
+names an exact `version_id` is now pinned to that file — the pair the author built against — instead
+of that library's newest release. Checked against the live API, into a scratch home:
+
+```
+uku's Armor HUD  ->  ukus-armor-hud-fabric-0.12.0+mc26.2.jar (49,661 bytes)
+                      ukulib-fabric-2.1.1+26.2.jar          (456,607 bytes)   <- required library
+Iris Shaders     ->  iris-fabric-1.11.4+mc26.2.jar  (2,821,616 bytes)
+                      sodium-fabric-0.9.2+mc26.2.jar (1,885,572 bytes)  <- required library
+```
+
+**The `Provider "jar" not found` crash in the screenshot is the old 1.6.0 runtime, not this build.**
+The installed runtime now reports `jdk.zipfs@25.0.5`, and the launch log written after the 1.6.1
+install (`Default-2026-10-29_02-14-40.log`) runs the same fabric-loader-0.20.1-26.2 command into a
+world (`Saving chunks for level 'ServerLevel[New World]'`) with 63 mods loaded.

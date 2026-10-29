@@ -58,6 +58,7 @@ public final class ModsPage extends Page {
 
 	private final JPanel results = Ui.column();
 	private final JTextField search = new Ui.Field("Search Modrinth…");
+	/** Sits at the right end of the card header, where there is room for it at any window size. */
 	private final JLabel countLabel = Ui.dim("");
 	private final JLabel browseStatus = Ui.dim("");
 	private final Ui.Combo<String> sort = new Ui.Combo<>(new String[] { "Relevance", "Downloads", "Follows", "Newest", "Updated" }, "Relevance");
@@ -225,7 +226,7 @@ public final class ModsPage extends Page {
 		JPanel browse = new JPanel(new BorderLayout(14, 12));
 		browse.setOpaque(false);
 
-		Ui.Card listCard = new Ui.Card("Modrinth");
+		Ui.Card listCard = new Ui.Card("Modrinth", countLabel);
 		JPanel top = Ui.row(new BorderLayout(10, 0));
 		top.add(Ui.fill(search), BorderLayout.CENTER);
 		JPanel topRight = Ui.row();
@@ -240,7 +241,8 @@ public final class ModsPage extends Page {
 		listCard.body().add(Ui.gap(10));
 
 		JPanel pager = Ui.row(new BorderLayout(10, 0));
-		pager.add(countLabel, BorderLayout.WEST);
+		// Only the controls sit on this row: the result count is in the card header, where there is
+		// always room, so nothing here can be drawn over by something else.
 		JPanel arrows = Ui.row();
 		arrows.add(sort);
 		arrows.add(Ui.hgap(8));
@@ -269,13 +271,18 @@ public final class ModsPage extends Page {
 		listCard.body().add(scroller);
 
 		browse.add(listCard, BorderLayout.CENTER);
-		browse.add(filtersCard(), BorderLayout.WEST);
+		// The filters keep one width and scroll on their own axis: on a short window the whole set
+		// has to stay reachable rather than being cut off at the bottom of the page.
+		JScrollPane filters = Ui.scroll(filtersCard());
+		filters.setPreferredSize(new Dimension(250, 10));
+		filters.setMinimumSize(new Dimension(220, 10));
+		browse.add(filters, BorderLayout.WEST);
 		return browse;
 	}
 
 	private JComponent filtersCard() {
 		Ui.Card card = new Ui.Card("Browse");
-		card.setPreferredSize(new Dimension(248, 10));
+		card.setPreferredSize(new Dimension(230, 10));
 
 		// The three project types the launcher can actually place: mods, resource packs, shaders.
 		Tabs types = new Tabs("Mods", "Packs", "Shaders");
@@ -307,7 +314,10 @@ public final class ModsPage extends Page {
 		card.body().add(Ui.gap(6));
 		card.body().add(Ui.fill(categoryFilter));
 		card.body().add(Ui.gap(14));
-		card.body().add(Ui.dim("Filters use the active instance's version by default."));
+		// Two short lines rather than one long one: the card is a fixed width, and a sentence that
+		// does not fit is exactly the "can't see the whole thing" that plain labels cause.
+		card.body().add(Ui.dim("Version and loader"));
+		card.body().add(Ui.dim("follow this instance."));
 		return card;
 	}
 
@@ -382,7 +392,11 @@ public final class ModsPage extends Page {
 		results.repaint();
 	}
 
-	/** One search result: icon, name and author, the description, the numbers, and Install. */
+	/**
+	 * One search result: icon, name, the description, the numbers, and Install. The description and
+	 * the numbers are {@link Ui.Elided}, so a long one shortens to whatever width is left beside the
+	 * button instead of widening the row and painting over it.
+	 */
 	private JPanel resultRow(Modrinth.Hit hit) {
 		Ui.Row row = new Ui.Row();
 		row.hoverable();
@@ -392,25 +406,22 @@ public final class ModsPage extends Page {
 		row.add(icon, BorderLayout.WEST);
 
 		JPanel titles = Ui.column();
-		JLabel title = new JLabel(hit.title());
-		title.setFont(Theme.bold(16));
-		title.setForeground(Theme.TEXT);
-		titles.add(title);
+		titles.add(new Ui.Elided(hit.title(), Theme.bold(15), Theme.TEXT));
+		titles.add(Ui.gap(2));
+		titles.add(new Ui.Elided(hit.description(), Theme.font(12), Theme.TEXT_DIM));
 		titles.add(Ui.gap(3));
-		titles.add(Ui.dim(hit.description().length() > 110 ? hit.description().substring(0, 107) + "…" : hit.description()));
-		titles.add(Ui.gap(4));
-		titles.add(Ui.dim("by " + hit.author() + "  ·  " + hit.downloadsText() + " downloads  ·  "
-			+ hit.followersText() + " followers  ·  " + hit.updatedText()));
+		titles.add(new Ui.Elided("by " + hit.author() + "  ·  " + hit.downloadsText() + " downloads  ·  "
+			+ hit.followersText() + " followers  ·  " + hit.updatedText(), Theme.font(12), Theme.TEXT_DISABLED));
 		row.add(titles, BorderLayout.CENTER);
 
-		Ui.Button install = Ui.primary("Install").size(108, 36).withGlyph(Icons::plus);
+		Ui.Button install = Ui.primary("Install").size(104, 34).withGlyph(Icons::plus);
 		install.onClick(button -> install(hit, install));
 		JPanel controls = Ui.row();
 		controls.add(install);
 		row.add(controls, BorderLayout.EAST);
 
 		row.setAlignmentX(LEFT_ALIGNMENT);
-		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 96));
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 84));
 		return row;
 	}
 
@@ -638,10 +649,13 @@ public final class ModsPage extends Page {
 		Ui.Row row = new Ui.Row();
 		row.hoverable();
 
+		// Jar names are long and this row has a switch and a Remove button beside them, so both
+		// lines shorten to the space they get instead of pushing the controls off the row.
 		JPanel titles = Ui.column();
-		titles.add(Ui.text(mod.displayName()));
+		titles.add(new Ui.Elided(mod.displayName(), Theme.bold(13), Theme.TEXT));
 		titles.add(Ui.gap(2));
-		titles.add(Ui.dim(mod.fileName() + "  ·  " + mod.sizeText() + (mod.enabled() ? "" : "  ·  disabled")));
+		titles.add(new Ui.Elided(mod.fileName() + "  ·  " + mod.sizeText() + (mod.enabled() ? "" : "  ·  disabled"),
+			Theme.font(12), Theme.TEXT_DIM));
 		row.add(titles, BorderLayout.CENTER);
 
 		JPanel controls = Ui.row();
@@ -650,7 +664,7 @@ public final class ModsPage extends Page {
 		controls.add(new Ui.Button("Remove", Ui.Variant.DANGER).size(92, 30).onClick(button -> remove(mod)));
 		row.add(controls, BorderLayout.EAST);
 		row.setAlignmentX(LEFT_ALIGNMENT);
-		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 58));
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 56));
 		return row;
 	}
 

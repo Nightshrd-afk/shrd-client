@@ -165,19 +165,19 @@ public final class Modrinth {
 			}
 
 			String projectId = MinecraftMeta.string(dependency, "project_id", null);
+			String versionId = MinecraftMeta.string(dependency, "version_id", null);
 			JsonObject resolved = null;
 
 			try {
-				if (projectId == null) {
-					// A version-only dependency: the version record names the project.
-					String versionId = MinecraftMeta.string(dependency, "version_id", null);
-
-					if (versionId == null) {
-						continue;
-					}
-
+				// A dependency that names an exact version is pinned to the file the mod was built
+				// against, which is the pair the author tested. The project id alone would fetch that
+				// library's newest release, which may be a major version the mod does not know.
+				if (versionId != null) {
 					resolved = JsonParser.parseString(Http.getString(API + "/version/" + versionId)).getAsJsonObject();
-					projectId = MinecraftMeta.string(resolved, "project_id", null);
+
+					if (projectId == null) {
+						projectId = MinecraftMeta.string(resolved, "project_id", null);
+					}
 				}
 
 				if (projectId == null || !seen.add(projectId)) {

@@ -154,6 +154,104 @@ public final class Ui {
 		return label;
 	}
 
+	/**
+	 * One line of text that shortens itself to whatever width it is given.
+	 * <p>
+	 * A plain {@link JLabel} reports the width of its whole string as its preferred width, and Swing
+	 * does not clip a child to its parent. A long description therefore made its row wider than the
+	 * window: the row was laid out too wide, the text was cut mid-word, and it painted straight over
+	 * whatever sat beside it — the Install button. This reports a small preferred width, stretches
+	 * to the width the layout hands it, and draws its own "…", so a row always fits and always ends
+	 * on a visible full stop of a word.
+	 */
+	public static final class Elided extends javax.swing.JComponent {
+		private final java.awt.Font font;
+		private final java.awt.Color colour;
+		private String full = "";
+
+		public Elided(String text, java.awt.Font font, java.awt.Color colour) {
+			this.font = font;
+			this.colour = colour;
+			setOpaque(false);
+			setAlignmentX(Component.LEFT_ALIGNMENT);
+			setText(text);
+		}
+
+		public void setText(String text) {
+			full = text == null ? "" : text;
+			setToolTipText(full.isBlank() ? null : full);
+			revalidate();
+			repaint();
+		}
+
+		public String getText() {
+			return full;
+		}
+
+		@Override
+		public Dimension getPreferredSize() {
+			return new Dimension(10, Math.max(12, getFontMetrics(font).getHeight()));
+		}
+
+		@Override
+		public Dimension getMinimumSize() {
+			return getPreferredSize();
+		}
+
+		@Override
+		public Dimension getMaximumSize() {
+			return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			if (full.isEmpty() || getWidth() <= 0) {
+				return;
+			}
+
+			Graphics2D g = (Graphics2D) graphics.create();
+			hints(g);
+			g.setFont(font);
+			g.setColor(colour);
+			java.awt.FontMetrics metrics = g.getFontMetrics();
+			g.drawString(shorten(full, metrics, getWidth()), 0, (getHeight() - metrics.getHeight()) / 2 + metrics.getAscent());
+			g.dispose();
+		}
+
+		/** {@code text} cut to {@code width} pixels, ending in an ellipsis when it had to be cut. */
+		static String shorten(String text, java.awt.FontMetrics metrics, int width) {
+			if (width <= 0) {
+				return "";
+			}
+
+			if (metrics.stringWidth(text) <= width) {
+				return text;
+			}
+
+			String ellipsis = "…";
+			int room = width - metrics.stringWidth(ellipsis);
+
+			if (room <= 0) {
+				return "";
+			}
+
+			int low = 0;
+			int high = text.length();
+
+			while (low < high) {
+				int middle = (low + high + 1) / 2;
+
+				if (metrics.stringWidth(text.substring(0, middle)) <= room) {
+					low = middle;
+				} else {
+					high = middle - 1;
+				}
+			}
+
+			return text.substring(0, low).stripTrailing() + ellipsis;
+		}
+	}
+
 	/** Makes a control stretch to the width of the box it is in instead of centring itself. */
 	public static <T extends JComponent> T fill(T component) {
 		Dimension preferred = component.getPreferredSize();
